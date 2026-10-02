@@ -1,0 +1,937 @@
+@import "./fonts.css";
+@import "tailwindcss";
+
+/* `dark:` — по атрибуту темы на <html>, а не по системной настройке: тему выбирает человек (см. app/theme). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Система стилей Ikigai (docs/design/2026-10-02-styles.md): пять готовых образов — «Сигнал», «Графит», «Светлый»,
+ * «Крафт» и «Хардкор». Образ выбирается в Настройках и лежит на <html> как data-style; цветовую схему
+ * (data-theme="light|dark") ставит сам образ. Токены в @theme — значения «Сигнала» по умолчанию, остальные образы
+ * переопределяют их блоками [data-style="…"]. Названия токенов стабильны: ими пользуются все компоненты.
+ * Блоки ниже генерируются вручную в одном порядке — тест src/styles/styles.test.ts следит, чтобы в каждом были все токены.
+ */
+@theme {
+  /* Значения по умолчанию — образ «Сигнал»; полный набор каждого образа — в блоках [data-style] ниже. */
+  --color-canvas: #080909;
+  --color-panel: #0C0D0D;
+  --color-sunken: #050606;
+  --color-surface: #111312;
+  --color-raised: #171A18;
+  --color-overlay: #1A1D1B;
+  --color-control-border: #666B67;
+  --color-text: #F1F0EA;
+  --color-muted-strong: #C5C7C1;
+  --color-muted: #969A96;
+  --color-backdrop: rgb(0 0 0 / 0.66);
+  --color-brand-ink: #F1F0EA;
+  --color-brand-rose: #969A96;
+  --color-brand-violet: #D4FF3A;
+  --color-brand-sun: #969A96;
+  --color-brand-mint: #969A96;
+  --color-accent: #D4FF3A;
+  --color-accent-hover: #E4FF7A;
+  --color-accent-strong: #D4FF3A;
+  --color-on-accent: #0B0D00;
+  --color-primary: #F1F0EA;
+  --color-on-primary: #080909;
+  --color-selection: #D4FF3A;
+  --color-on-selection: #0B0D00;
+  --color-knob-on: #0B0D00;
+  --color-knob-off: #080909;
+  --color-indigo: #8E96FF;
+  --color-mint: #2EE6A8;
+  --color-rose: #FF3D2E;
+  --color-amber: #FFB020;
+  --color-lilac: #C08CFF;
+  --color-sky: #4FE3FF;
+  --color-lime: #D4FF3A;
+  --color-coral: #FF8A3D;
+  --color-sun: #FFE14A;
+  --color-important-strong: #FF5A4A;
+  --color-success: #35D07F;
+  --color-success-strong: #7BE3A8;
+  --color-warning: #FFB020;
+  --color-warning-strong: #FFC95C;
+  --color-danger: #E02619;
+  --color-danger-strong: #FF5A4A;
+  /* Производные тона: заливки, линии, мягкие подложки. Повторены ниже для любого элемента с data-style. */
+  --color-fill: color-mix(in oklab, var(--color-text) var(--fill-pct), transparent);
+  --color-fill-strong: color-mix(in oklab, var(--color-text) var(--fill-strong-pct), transparent);
+  --color-border: color-mix(in oklab, var(--color-text) var(--line-pct), transparent);
+  --color-border-strong: color-mix(in oklab, var(--color-text) var(--line-strong-pct), transparent);
+  --color-accent-soft: color-mix(in oklab, var(--accent-soft-base) var(--accent-soft-pct), var(--color-surface));
+  --color-indigo-strong: var(--color-muted-strong);
+  --color-mint-strong: var(--color-muted-strong);
+  --color-rose-strong: var(--color-muted-strong);
+  --color-amber-strong: var(--color-muted-strong);
+  --color-lilac-strong: var(--color-muted-strong);
+  --color-sky-strong: var(--color-muted-strong);
+  --color-lime-strong: var(--color-muted-strong);
+  --color-coral-strong: var(--color-muted-strong);
+  --color-sun-strong: var(--color-muted-strong);
+  --color-indigo-soft: color-mix(in oklab, var(--color-indigo) var(--soft-pct), var(--color-surface));
+  --color-mint-soft: color-mix(in oklab, var(--color-mint) var(--soft-pct), var(--color-surface));
+  --color-rose-soft: color-mix(in oklab, var(--color-rose) var(--soft-pct), var(--color-surface));
+  --color-amber-soft: color-mix(in oklab, var(--color-amber) var(--soft-pct), var(--color-surface));
+  --color-lilac-soft: color-mix(in oklab, var(--color-lilac) var(--soft-pct), var(--color-surface));
+  --color-sky-soft: color-mix(in oklab, var(--color-sky) var(--soft-pct), var(--color-surface));
+  --color-lime-soft: color-mix(in oklab, var(--color-lime) var(--soft-pct), var(--color-surface));
+  --color-coral-soft: color-mix(in oklab, var(--color-coral) var(--soft-pct), var(--color-surface));
+  --color-sun-soft: color-mix(in oklab, var(--color-sun) var(--soft-pct), var(--color-surface));
+  --color-personal: var(--color-mint);
+  --color-personal-soft: var(--color-mint-soft);
+  --color-personal-strong: var(--color-muted-strong);
+  --color-important: var(--color-rose);
+  --color-important-soft: color-mix(in oklab, var(--color-rose) var(--important-soft-pct), var(--color-surface));
+  --color-success-soft: color-mix(in oklab, var(--color-success) var(--sem-soft-pct), var(--color-surface));
+  --color-warning-soft: color-mix(in oklab, var(--color-warning) var(--sem-soft-pct), var(--color-surface));
+  --color-danger-soft: color-mix(in oklab, var(--color-danger) var(--danger-soft-pct), var(--color-surface));
+
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Шрифт заголовков и акцентного слова зависит от образа (у «Крафта» — антиква). */
+  --font-heading: var(--font-sans);
+  --font-display: var(--font-sans);
+  --font-accent: "Noto Serif Display Variable", "Noto Serif Display", ui-serif, Georgia, serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Шкала: приветствие и крупные числа — display, заголовок страницы — h1. Образ «Крафт» увеличивает заголовки (ниже). */
+  --text-display: 28px;
+  --text-display--line-height: 34px;
+  --text-display--letter-spacing: -0.03em;
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-h1--letter-spacing: -0.025em;
+  --text-h2: 16px;
+  --text-h2--line-height: 22px;
+  --text-h2--letter-spacing: -0.015em;
+  --text-title: 14px;
+  --text-title--line-height: 20px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  /* Только для плотных чипов календаря и счётчиков; не для обычного текста. */
+  --text-micro: 11px;
+  --text-micro--line-height: 14px;
+
+  --radius-card: 4px;
+  --radius-tile: 2px;
+  --radius-control: 2px;
+  --radius-chip: 2px;
+  --radius-sheet: 4px;
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 4px;
+  /* Метки-точки, полосы и дорожки прогресса, тумблер: форма зависит от образа (квадрат или круг). */
+  --radius-mark: 0px;
+  --radius-bar: 0px;
+  --radius-track: 2px;
+  --radius-knob: 1px;
+
+  /* Тени (--shadow-raised / -pop / -overlay) заданы в блоках образов и подключаются как shadow-(--shadow-…): Tailwind вшивает значения
+     именованных теней при сборке, а нам нужно, чтобы они менялись вместе с образом. */
+
+  /* Движение: 100 / 150 / 220 мс, без пружин и отскока. */
+  --ease-spring: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 100ms;
+  --duration-base: 150ms;
+  --duration-slow: 220ms;
+
+  --animate-in: ikigai-in var(--duration-base) var(--ease-out-soft) backwards;
+  --animate-pop: ikigai-pop var(--duration-base) var(--ease-out-soft) backwards;
+  --animate-check-pop: ikigai-check-pop 120ms var(--ease-out-soft);
+  --animate-breathe: none;
+
+  /* Без transform в конечном кадре: иначе у предков появляется контекст и «уезжают» fixed-слои перетаскивания. */
+  @keyframes ikigai-in {
+    from { opacity: 0; translate: 0 4px; }
+  }
+  @keyframes ikigai-pop {
+    from { opacity: 0; translate: 0 4px; }
+  }
+  @keyframes ikigai-check-pop {
+    from { scale: 0.9; }
+    to { scale: 1; }
+  }
+}
+
+/* Производные токены: пересчитываются на каждом элементе с data-style — поэтому превью образа в Настройках
+   (обычный блок с data-style внутри страницы) показывает свои цвета, а не цвета текущей страницы. */
+:root, [data-style] {
+  --color-fill: color-mix(in oklab, var(--color-text) var(--fill-pct), transparent);
+  --color-fill-strong: color-mix(in oklab, var(--color-text) var(--fill-strong-pct), transparent);
+  --color-border: color-mix(in oklab, var(--color-text) var(--line-pct), transparent);
+  --color-border-strong: color-mix(in oklab, var(--color-text) var(--line-strong-pct), transparent);
+  --color-accent-soft: color-mix(in oklab, var(--accent-soft-base) var(--accent-soft-pct), var(--color-surface));
+  --color-indigo-strong: var(--color-muted-strong);
+  --color-mint-strong: var(--color-muted-strong);
+  --color-rose-strong: var(--color-muted-strong);
+  --color-amber-strong: var(--color-muted-strong);
+  --color-lilac-strong: var(--color-muted-strong);
+  --color-sky-strong: var(--color-muted-strong);
+  --color-lime-strong: var(--color-muted-strong);
+  --color-coral-strong: var(--color-muted-strong);
+  --color-sun-strong: var(--color-muted-strong);
+  --color-indigo-soft: color-mix(in oklab, var(--color-indigo) var(--soft-pct), var(--color-surface));
+  --color-mint-soft: color-mix(in oklab, var(--color-mint) var(--soft-pct), var(--color-surface));
+  --color-rose-soft: color-mix(in oklab, var(--color-rose) var(--soft-pct), var(--color-surface));
+  --color-amber-soft: color-mix(in oklab, var(--color-amber) var(--soft-pct), var(--color-surface));
+  --color-lilac-soft: color-mix(in oklab, var(--color-lilac) var(--soft-pct), var(--color-surface));
+  --color-sky-soft: color-mix(in oklab, var(--color-sky) var(--soft-pct), var(--color-surface));
+  --color-lime-soft: color-mix(in oklab, var(--color-lime) var(--soft-pct), var(--color-surface));
+  --color-coral-soft: color-mix(in oklab, var(--color-coral) var(--soft-pct), var(--color-surface));
+  --color-sun-soft: color-mix(in oklab, var(--color-sun) var(--soft-pct), var(--color-surface));
+  --color-personal: var(--color-mint);
+  --color-personal-soft: var(--color-mint-soft);
+  --color-personal-strong: var(--color-muted-strong);
+  --color-important: var(--color-rose);
+  --color-important-soft: color-mix(in oklab, var(--color-rose) var(--important-soft-pct), var(--color-surface));
+  --color-success-soft: color-mix(in oklab, var(--color-success) var(--sem-soft-pct), var(--color-surface));
+  --color-warning-soft: color-mix(in oklab, var(--color-warning) var(--sem-soft-pct), var(--color-surface));
+  --color-danger-soft: color-mix(in oklab, var(--color-danger) var(--danger-soft-pct), var(--color-surface));
+}
+
+/* Сигнал — чернила #080909, бумага #F1F0EA, лайм #D4FF3A, красный #FF3D2E (как сайт S.A.T). Острые углы, капитель, квадратные метки. */
+:root, [data-style="signal"] {
+  /* Поверхности, текст, акцент, метки, семантика */
+  --color-canvas: #080909;
+  --color-panel: #0C0D0D;
+  --color-sunken: #050606;
+  --color-surface: #111312;
+  --color-raised: #171A18;
+  --color-overlay: #1A1D1B;
+  --color-control-border: #666B67;
+  --color-text: #F1F0EA;
+  --color-muted-strong: #C5C7C1;
+  --color-muted: #969A96;
+  --color-backdrop: rgb(0 0 0 / 0.66);
+  --color-brand-ink: #F1F0EA;
+  --color-brand-rose: #969A96;
+  --color-brand-violet: #D4FF3A;
+  --color-brand-sun: #969A96;
+  --color-brand-mint: #969A96;
+  --color-accent: #D4FF3A;
+  --color-accent-hover: #E4FF7A;
+  --color-accent-strong: #D4FF3A;
+  --color-on-accent: #0B0D00;
+  --color-primary: #F1F0EA;
+  --color-on-primary: #080909;
+  --color-selection: #D4FF3A;
+  --color-on-selection: #0B0D00;
+  --color-knob-on: #0B0D00;
+  --color-knob-off: #080909;
+  --color-indigo: #8E96FF;
+  --color-mint: #2EE6A8;
+  --color-rose: #FF3D2E;
+  --color-amber: #FFB020;
+  --color-lilac: #C08CFF;
+  --color-sky: #4FE3FF;
+  --color-lime: #D4FF3A;
+  --color-coral: #FF8A3D;
+  --color-sun: #FFE14A;
+  --color-important-strong: #FF5A4A;
+  --color-success: #35D07F;
+  --color-success-strong: #7BE3A8;
+  --color-warning: #FFB020;
+  --color-warning-strong: #FFC95C;
+  --color-danger: #E02619;
+  --color-danger-strong: #FF5A4A;
+  /* Параметры производных токенов (заливки, линии, тона) */
+  --fill-pct: 5%;
+  --fill-strong-pct: 9%;
+  --line-pct: 12%;
+  --line-strong-pct: 24%;
+  --soft-pct: 10%;
+  --accent-soft-pct: 13%;
+  --accent-soft-base: var(--color-accent);
+  --important-soft-pct: 14%;
+  --sem-soft-pct: 13%;
+  --danger-soft-pct: 17%;
+  --shadow-raised: inset 0 1px 0 rgb(241 240 234 / 0.04);
+  --shadow-pop: 0 0 0 1px rgb(241 240 234 / 0.12), 0 8px 24px rgb(0 0 0 / 0.6);
+  --shadow-overlay: 0 0 0 1px rgb(241 240 234 / 0.14), 0 16px 48px rgb(0 0 0 / 0.7);
+  /* Углы: карточки и поля, шкала rounded-*, метки / полосы / тумблер */
+  --radius-card: 4px;
+  --radius-tile: 2px;
+  --radius-control: 2px;
+  --radius-chip: 2px;
+  --radius-sheet: 4px;
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 4px;
+  --radius-mark: 0px;
+  --radius-bar: 0px;
+  --radius-track: 2px;
+  --radius-knob: 1px;
+  /* Шрифты */
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-accent: "Noto Serif Display Variable", "Noto Serif Display", ui-serif, Georgia, serif;
+  /* Характер: заголовки, подписи, акцентное слово, кнопки, знак */
+  --heading-weight: 500;
+  --title-weight: 500;
+  --title-transform: uppercase;
+  --label-font: inherit;
+  --label-size: 11px;
+  --label-line: 14px;
+  --label-weight: 500;
+  --label-fstyle: normal;
+  --label-tracking: 0.14em;
+  --label-transform: uppercase;
+  --accent-fstyle: italic;
+  --accent-weight: 350;
+  --accent-size: 1.14em;
+  --accent-tracking: -0.02em;
+  --button-transform: none;
+  --button-tracking: 0;
+  --wordmark-weight: 500;
+  --wordmark-transform: uppercase;
+  --wordmark-tracking: 0.08em;
+  --focus-w: 2px;
+}
+
+/* Графит — как было до «Сигнала» (v3): графит #0E0F11, индиго #5B64E3, мягкие углы, обычный регистр. */
+[data-style="graphite"] {
+  /* Поверхности, текст, акцент, метки, семантика */
+  --color-canvas: #0E0F11;
+  --color-panel: #0B0C0E;
+  --color-sunken: #0A0B0C;
+  --color-surface: #131417;
+  --color-raised: #191B1F;
+  --color-overlay: #1B1D21;
+  --color-control-border: #62666E;
+  --color-text: #ECEDEF;
+  --color-muted-strong: #B4B7BD;
+  --color-muted: #8B8F98;
+  --color-backdrop: rgb(0 0 0 / 0.6);
+  --color-brand-ink: #ECEDEF;
+  --color-brand-rose: #8B8F98;
+  --color-brand-violet: #9AA2FF;
+  --color-brand-sun: #8B8F98;
+  --color-brand-mint: #8B8F98;
+  --color-accent: #5B64E3;
+  --color-accent-hover: #6E76EA;
+  --color-accent-strong: #9AA2FF;
+  --color-on-accent: #FFFFFF;
+  --color-primary: #ECEDEF;
+  --color-on-primary: #0E0F11;
+  --color-selection: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  --color-on-selection: var(--color-text);
+  --color-knob-on: #FFFFFF;
+  --color-knob-off: #FFFFFF;
+  --color-indigo: #7A84F0;
+  --color-mint: #34C3A0;
+  --color-rose: #F0707F;
+  --color-amber: #E5A63B;
+  --color-lilac: #A98BF5;
+  --color-sky: #4DB1F0;
+  --color-lime: #9BD14B;
+  --color-coral: #F58A68;
+  --color-sun: #E8C547;
+  --color-important-strong: #FF9BA6;
+  --color-success: #2FBF71;
+  --color-success-strong: #5FD493;
+  --color-warning: #E5A63B;
+  --color-warning-strong: #F0C060;
+  --color-danger: #CF3A45;
+  --color-danger-strong: #FF8A93;
+  /* Параметры производных токенов (заливки, линии, тона) */
+  --fill-pct: 5%;
+  --fill-strong-pct: 8%;
+  --line-pct: 8%;
+  --line-strong-pct: 14%;
+  --soft-pct: 9%;
+  --accent-soft-pct: 16%;
+  --accent-soft-base: var(--color-accent);
+  --important-soft-pct: 12%;
+  --sem-soft-pct: 13%;
+  --danger-soft-pct: 16%;
+  --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-overlay: 0 0 0 1px rgb(255 255 255 / 0.08), 0 16px 48px rgb(0 0 0 / 0.6);
+  /* Углы: карточки и поля, шкала rounded-*, метки / полосы / тумблер */
+  --radius-card: 12px;
+  --radius-tile: 8px;
+  --radius-control: 8px;
+  --radius-chip: 6px;
+  --radius-sheet: 14px;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-mark: 9999px;
+  --radius-bar: 9999px;
+  --radius-track: 9999px;
+  --radius-knob: 9999px;
+  /* Шрифты */
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-accent: inherit;
+  /* Характер: заголовки, подписи, акцентное слово, кнопки, знак */
+  --heading-weight: 600;
+  --title-weight: 600;
+  --title-transform: none;
+  --label-font: inherit;
+  --label-size: 12px;
+  --label-line: 16px;
+  --label-weight: 500;
+  --label-fstyle: normal;
+  --label-tracking: 0;
+  --label-transform: none;
+  --accent-fstyle: normal;
+  --accent-weight: inherit;
+  --accent-size: 1em;
+  --accent-tracking: inherit;
+  --button-transform: none;
+  --button-tracking: 0;
+  --wordmark-weight: 600;
+  --wordmark-transform: none;
+  --wordmark-tracking: -0.02em;
+  --focus-w: 2px;
+}
+
+/* Светлый — белая страница, чернила и лаймовый маркер. Мягкие углы, обычный регистр. */
+[data-style="light"] {
+  /* Поверхности, текст, акцент, метки, семантика */
+  --color-canvas: #F4F4F2;
+  --color-panel: #ECECE9;
+  --color-sunken: #E6E6E2;
+  --color-surface: #FFFFFF;
+  --color-raised: #FFFFFF;
+  --color-overlay: #FFFFFF;
+  --color-control-border: #8A8D86;
+  --color-text: #0E0F0D;
+  --color-muted-strong: #3F423D;
+  --color-muted: #63665F;
+  --color-backdrop: rgb(14 15 13 / 0.4);
+  --color-brand-ink: #0E0F0D;
+  --color-brand-rose: #63665F;
+  --color-brand-violet: #0E0F0D;
+  --color-brand-sun: #63665F;
+  --color-brand-mint: #63665F;
+  --color-accent: #0E0F0D;
+  --color-accent-hover: #2B2E29;
+  --color-accent-strong: #0E0F0D;
+  --color-on-accent: #D4FF3A;
+  --color-primary: #0E0F0D;
+  --color-on-primary: #F4F4F2;
+  --color-selection: #D4FF3A;
+  --color-on-selection: #0E0F0D;
+  --color-knob-on: #D4FF3A;
+  --color-knob-off: #FFFFFF;
+  --color-indigo: #4A52E8;
+  --color-mint: #0A9F78;
+  --color-rose: #E02619;
+  --color-amber: #C27C00;
+  --color-lilac: #7B44E0;
+  --color-sky: #0A8DB5;
+  --color-lime: #6F8F00;
+  --color-coral: #E0531F;
+  --color-sun: #9A7D00;
+  --color-important-strong: #C41A0C;
+  --color-success: #1F9D5C;
+  --color-success-strong: #14683F;
+  --color-warning: #C98A0B;
+  --color-warning-strong: #8A5A00;
+  --color-danger: #D91F11;
+  --color-danger-strong: #C41A0C;
+  /* Параметры производных токенов (заливки, линии, тона) */
+  --fill-pct: 5%;
+  --fill-strong-pct: 8%;
+  --line-pct: 10%;
+  --line-strong-pct: 18%;
+  --soft-pct: 8%;
+  --accent-soft-pct: 42%;
+  --accent-soft-base: #D4FF3A;
+  --important-soft-pct: 9%;
+  --sem-soft-pct: 11%;
+  --danger-soft-pct: 9%;
+  --shadow-raised: 0 1px 2px rgb(14 15 13 / 0.06);
+  --shadow-pop: 0 0 0 1px rgb(14 15 13 / 0.08), 0 8px 24px rgb(14 15 13 / 0.12);
+  --shadow-overlay: 0 0 0 1px rgb(14 15 13 / 0.08), 0 16px 48px rgb(14 15 13 / 0.18);
+  /* Углы: карточки и поля, шкала rounded-*, метки / полосы / тумблер */
+  --radius-card: 10px;
+  --radius-tile: 8px;
+  --radius-control: 8px;
+  --radius-chip: 6px;
+  --radius-sheet: 12px;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-mark: 9999px;
+  --radius-bar: 9999px;
+  --radius-track: 9999px;
+  --radius-knob: 9999px;
+  /* Шрифты */
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-accent: inherit;
+  /* Характер: заголовки, подписи, акцентное слово, кнопки, знак */
+  --heading-weight: 600;
+  --title-weight: 600;
+  --title-transform: none;
+  --label-font: inherit;
+  --label-size: 12px;
+  --label-line: 16px;
+  --label-weight: 500;
+  --label-fstyle: normal;
+  --label-tracking: 0;
+  --label-transform: none;
+  --accent-fstyle: normal;
+  --accent-weight: inherit;
+  --accent-size: 1em;
+  --accent-tracking: inherit;
+  --button-transform: none;
+  --button-tracking: 0;
+  --wordmark-weight: 600;
+  --wordmark-transform: none;
+  --wordmark-tracking: -0.02em;
+  --focus-w: 2px;
+}
+
+/* Крафт — тёплая бумага #F4EDE0, терракота #B84A22, антиква Alegreya, зерно. Творческая мастерская. */
+[data-style="craft"] {
+  /* Поверхности, текст, акцент, метки, семантика */
+  --color-canvas: #F4EDE0;
+  --color-panel: #EBE2D0;
+  --color-sunken: #E4DAC6;
+  --color-surface: #FBF7EE;
+  --color-raised: #FFFDF7;
+  --color-overlay: #FFFDF7;
+  --color-control-border: #8E7F6A;
+  --color-text: #2A2118;
+  --color-muted-strong: #54483A;
+  --color-muted: #6F6050;
+  --color-backdrop: rgb(42 33 24 / 0.45);
+  --color-brand-ink: #2A2118;
+  --color-brand-rose: #6F6050;
+  --color-brand-violet: #B84A22;
+  --color-brand-sun: #6F6050;
+  --color-brand-mint: #6F6050;
+  --color-accent: #B84A22;
+  --color-accent-hover: #A03F1A;
+  --color-accent-strong: #A23F18;
+  --color-on-accent: #FFF8EC;
+  --color-primary: #B84A22;
+  --color-on-primary: #FFF8EC;
+  --color-selection: #EBC9A2;
+  --color-on-selection: #2A2118;
+  --color-knob-on: #FFF8EC;
+  --color-knob-off: #FFFDF7;
+  --color-indigo: #3E5C9A;
+  --color-mint: #5E8C6A;
+  --color-rose: #B5476B;
+  --color-amber: #B07A0C;
+  --color-lilac: #7C4A7E;
+  --color-sky: #2F7F86;
+  --color-lime: #7A8A2A;
+  --color-coral: #C65A33;
+  --color-sun: #9E7D14;
+  --color-important-strong: #9A2C16;
+  --color-success: #4C8A4F;
+  --color-success-strong: #2F6B3A;
+  --color-warning: #B07A0C;
+  --color-warning-strong: #7A5300;
+  --color-danger: #B3361F;
+  --color-danger-strong: #9A2C16;
+  /* Параметры производных токенов (заливки, линии, тона) */
+  --fill-pct: 5%;
+  --fill-strong-pct: 9%;
+  --line-pct: 14%;
+  --line-strong-pct: 26%;
+  --soft-pct: 9%;
+  --accent-soft-pct: 14%;
+  --accent-soft-base: var(--color-accent);
+  --important-soft-pct: 10%;
+  --sem-soft-pct: 12%;
+  --danger-soft-pct: 10%;
+  --shadow-raised: 0 1px 0 rgb(42 33 24 / 0.06);
+  --shadow-pop: 0 0 0 1px rgb(42 33 24 / 0.10), 0 8px 24px rgb(42 33 24 / 0.14);
+  --shadow-overlay: 0 0 0 1px rgb(42 33 24 / 0.10), 0 16px 48px rgb(42 33 24 / 0.20);
+  /* Углы: карточки и поля, шкала rounded-*, метки / полосы / тумблер */
+  --radius-card: 10px;
+  --radius-tile: 8px;
+  --radius-control: 8px;
+  --radius-chip: 6px;
+  --radius-sheet: 12px;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-mark: 9999px;
+  --radius-bar: 9999px;
+  --radius-track: 9999px;
+  --radius-knob: 9999px;
+  /* Шрифты */
+  --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Alegreya Variable", "Alegreya", ui-serif, Georgia, serif;
+  --font-accent: "Alegreya Variable", "Alegreya", ui-serif, Georgia, serif;
+  /* Характер: заголовки, подписи, акцентное слово, кнопки, знак */
+  --heading-weight: 700;
+  --title-weight: 700;
+  --title-transform: none;
+  --label-font: "Alegreya Variable", "Alegreya", ui-serif, Georgia, serif;
+  --label-size: 13px;
+  --label-line: 18px;
+  --label-weight: 500;
+  --label-fstyle: italic;
+  --label-tracking: 0;
+  --label-transform: none;
+  --accent-fstyle: italic;
+  --accent-weight: 500;
+  --accent-size: 1em;
+  --accent-tracking: 0;
+  --button-transform: none;
+  --button-tracking: 0;
+  --wordmark-weight: 800;
+  --wordmark-transform: none;
+  --wordmark-tracking: 0;
+  --focus-w: 2px;
+}
+
+/* Хардкор — чёрное и жёлтое #FFE600, моноширинный шрифт, жёсткие тени, ни одного скругления. */
+[data-style="hardcore"] {
+  /* Поверхности, текст, акцент, метки, семантика */
+  --color-canvas: #000000;
+  --color-panel: #000000;
+  --color-sunken: #000000;
+  --color-surface: #0A0A0A;
+  --color-raised: #121212;
+  --color-overlay: #121212;
+  --color-control-border: #8F8F8F;
+  --color-text: #FFFFFF;
+  --color-muted-strong: #D8D8D8;
+  --color-muted: #A3A3A3;
+  --color-backdrop: rgb(0 0 0 / 0.8);
+  --color-brand-ink: #FFFFFF;
+  --color-brand-rose: #A3A3A3;
+  --color-brand-violet: #FFE600;
+  --color-brand-sun: #A3A3A3;
+  --color-brand-mint: #A3A3A3;
+  --color-accent: #FFE600;
+  --color-accent-hover: #FFF066;
+  --color-accent-strong: #FFE600;
+  --color-on-accent: #000000;
+  --color-primary: #FFE600;
+  --color-on-primary: #000000;
+  --color-selection: #FFE600;
+  --color-on-selection: #000000;
+  --color-knob-on: #000000;
+  --color-knob-off: #000000;
+  --color-indigo: #7C8CFF;
+  --color-mint: #00F5A0;
+  --color-rose: #FF2D2D;
+  --color-amber: #FFA000;
+  --color-lilac: #C77DFF;
+  --color-sky: #00E5FF;
+  --color-lime: #B6FF00;
+  --color-coral: #FF6B35;
+  --color-sun: #FFE600;
+  --color-important-strong: #FF5A4A;
+  --color-success: #00E676;
+  --color-success-strong: #69F0AE;
+  --color-warning: #FFA000;
+  --color-warning-strong: #FFC947;
+  --color-danger: #E01E0E;
+  --color-danger-strong: #FF5A4A;
+  /* Параметры производных токенов (заливки, линии, тона) */
+  --fill-pct: 9%;
+  --fill-strong-pct: 15%;
+  --line-pct: 30%;
+  --line-strong-pct: 65%;
+  --soft-pct: 14%;
+  --accent-soft-pct: 16%;
+  --accent-soft-base: var(--color-accent);
+  --important-soft-pct: 16%;
+  --sem-soft-pct: 14%;
+  --danger-soft-pct: 18%;
+  --shadow-raised: 0 0 #0000;
+  --shadow-pop: 4px 4px 0 0 rgb(255 255 255 / 0.95);
+  --shadow-overlay: 8px 8px 0 0 #FFE600;
+  /* Углы: карточки и поля, шкала rounded-*, метки / полосы / тумблер */
+  --radius-card: 0px;
+  --radius-tile: 0px;
+  --radius-control: 0px;
+  --radius-chip: 0px;
+  --radius-sheet: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-mark: 0px;
+  --radius-bar: 0px;
+  --radius-track: 0px;
+  --radius-knob: 0px;
+  /* Шрифты */
+  --font-sans: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-sans);
+  --font-accent: inherit;
+  /* Характер: заголовки, подписи, акцентное слово, кнопки, знак */
+  --heading-weight: 700;
+  --title-weight: 700;
+  --title-transform: uppercase;
+  --label-font: inherit;
+  --label-size: 11px;
+  --label-line: 14px;
+  --label-weight: 700;
+  --label-fstyle: normal;
+  --label-tracking: 0.12em;
+  --label-transform: uppercase;
+  --accent-fstyle: normal;
+  --accent-weight: inherit;
+  --accent-size: 1em;
+  --accent-tracking: inherit;
+  --button-transform: uppercase;
+  --button-tracking: 0.06em;
+  --wordmark-weight: 700;
+  --wordmark-transform: uppercase;
+  --wordmark-tracking: 0.12em;
+  --focus-w: 3px;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  /* Нативные элементы (календарь у input[type=date], полосы прокрутки) — в гамме выбранной темы. */
+  html { color-scheme: dark; }
+  html[data-theme="light"] { color-scheme: light; }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    letter-spacing: -0.006em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 { font-family: var(--font-heading); font-weight: var(--heading-weight); letter-spacing: -0.02em; text-wrap: balance; }
+  /* Кольцо фокуса по умолчанию для всего, что не задало своё: сплошное, 2 px, акцент (≥ 3:1 к фону). */
+  :focus-visible { outline: var(--focus-w) solid var(--color-accent); outline-offset: 2px; }
+  /* Переходы — только у интерактивных элементов. */
+  a, button, input, select, textarea, label, summary, [role="button"], [role="option"], [role="radio"], [role="tab"],
+  [role="switch"], [role="menuitem"] {
+    transition-property: background-color, border-color, color, box-shadow, opacity, transform, scale, translate, outline-color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out-soft);
+  }
+  /* Иконки интерфейса — lucide с толщиной 1.5 (явно заданная толщина не трогается). */
+  .lucide[stroke-width="2"], .lucide[stroke-width="1.75"] { stroke-width: 1.5; }
+  /* Выделение текста — цвета образа (у «Сигнала» и «Хардкора» — сплошной сигнальный блок). */
+  ::selection { background: var(--color-selection); color: var(--color-on-selection); }
+  ::placeholder { color: var(--color-muted); opacity: 1; }
+  input[type="date"], input[type="time"], input[type="datetime-local"] { font-variant-numeric: tabular-nums; }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  html[data-theme="dark"] input::-webkit-calendar-picker-indicator { filter: invert(0.85); }
+}
+
+/* Кольцо фокуса для элементов с собственным оформлением. `focus-ring-inset` — внутрь (у края контейнера). */
+@utility focus-ring {
+  outline: var(--focus-w) solid transparent;
+  outline-offset: 2px;
+  &:focus-visible { outline-color: var(--color-accent); }
+}
+@utility focus-ring-inset {
+  outline: var(--focus-w) solid transparent;
+  outline-offset: -2px;
+  &:focus-visible { outline-color: var(--color-accent); }
+}
+/* Для полей: кольцо и при фокусе мышью — поле должно показывать, куда пойдёт ввод. */
+@utility focus-field {
+  outline: var(--focus-w) solid transparent;
+  outline-offset: 1px;
+  &:focus, &:focus-visible { outline-color: var(--color-accent); border-color: var(--color-accent); }
+}
+
+/* Кнопки «по наведению»: прячутся только там, где наведение есть. На планшетах и телефонах видны всегда. */
+@utility hover-reveal {
+  @media (hover: hover) and (pointer: fine) {
+    opacity: 0;
+    .group:hover &, .group:focus-within &, &:focus-visible, &:focus-within, &[aria-expanded="true"] { opacity: 1; }
+  }
+}
+
+/* Цветные эмодзи системы — только на пользовательском содержимом (задачи, цели, мечты, списки). */
+@utility font-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+  font-variant-emoji: emoji;
+}
+
+/* Числа: табличные цифры. Время и таймеры — в моноширинном начертании (`font-mono`). */
+@utility font-numeral {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Подпись: размер, вес, регистр и трекинг задаёт образ (у «Сигнала» и «Хардкора» — капитель с трекингом,
+   у «Графита» и «Светлого» — обычный текст 12 px, у «Крафта» — курсив антиквой). Для подписей полей,
+   групп меню и малых заголовков — не для текста, который читают подряд. */
+@utility label-text {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  line-height: var(--label-line);
+  font-weight: var(--label-weight);
+  font-style: var(--label-fstyle);
+  letter-spacing: var(--label-tracking);
+  text-transform: var(--label-transform);
+}
+
+/* Заголовок страницы и приветствие: шрифт, вес и регистр — по образу. */
+@utility title-text {
+  font-family: var(--font-heading);
+  font-weight: var(--title-weight);
+  text-transform: var(--title-transform);
+}
+
+/* Акцентное слово в заголовке (имя в приветствии): у «Сигнала» — курсивная антиква Noto Serif Display,
+   у «Крафта» — курсив Alegreya, у остальных — обычное начертание. */
+@utility accent-word {
+  font-family: var(--font-accent);
+  font-style: var(--accent-fstyle);
+  font-weight: var(--accent-weight);
+  font-size: var(--accent-size);
+  letter-spacing: var(--accent-tracking);
+  text-transform: none;
+}
+
+/* Текст кнопок: у «Хардкора» — капитель, у остальных — как есть. */
+@utility btn-text {
+  text-transform: var(--button-transform);
+  letter-spacing: var(--button-tracking);
+}
+
+/* Словесная марка «Ikigai». */
+@utility wordmark-text {
+  font-family: var(--font-heading);
+  font-weight: var(--wordmark-weight);
+  text-transform: var(--wordmark-transform);
+  letter-spacing: var(--wordmark-tracking);
+}
+
+@utility scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  &::-webkit-scrollbar { width: 8px; height: 8px; }
+  &::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 999px; }
+  &::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+}
+
+/* Появление страницы — `animate-in`. Лесенка для детей: шаг 20 мс, не дольше 8 шагов. */
+@utility stagger {
+  & > * { animation: var(--animate-in); }
+  & > *:nth-child(2) { animation-delay: 20ms; }
+  & > *:nth-child(3) { animation-delay: 40ms; }
+  & > *:nth-child(4) { animation-delay: 60ms; }
+  & > *:nth-child(5) { animation-delay: 80ms; }
+  & > *:nth-child(6) { animation-delay: 100ms; }
+  & > *:nth-child(7) { animation-delay: 120ms; }
+  & > *:nth-child(n + 8) { animation-delay: 140ms; }
+}
+
+/* Нажатие: едва заметное «вдавливание» у кнопок. */
+@utility press {
+  transition-timing-function: var(--ease-out-soft);
+  &:active:not(:disabled) { scale: 0.985; transition-duration: 60ms; }
+}
+
+/*
+ * Появление слоёв через @starting-style — прогрессивное улучшение: где не поддерживается, слой просто появится.
+ * Диалог и панель — прозрачность и сдвиг на несколько пикселей; лист снизу на телефоне — выезжает.
+ */
+[data-overlay="backdrop"] {
+  transition: opacity var(--duration-base) ease-out;
+  @starting-style { opacity: 0; }
+}
+[data-overlay="dialog"] {
+  transition: opacity var(--duration-base) ease-out, translate var(--duration-base) var(--ease-out-soft);
+  @starting-style { opacity: 0; translate: 0 6px; }
+  @media (max-width: 767px) {
+    @starting-style { opacity: 0; translate: 0 32px; }
+  }
+}
+[data-overlay="panel"] {
+  transition: opacity var(--duration-base) ease-out, translate var(--duration-slow) var(--ease-out-soft);
+  @starting-style { opacity: 0; translate: 16px 0; }
+}
+[data-overlay="popover"] {
+  transition: opacity var(--duration-fast) ease-out, translate var(--duration-fast) var(--ease-out-soft);
+  @starting-style { opacity: 0; translate: 0 2px; }
+}
+
+/* Смена страницы через View Transitions: каркас стоит на месте, старое содержимое тает,
+   новое появляется своей анимацией `animate-in` (см. Shell). */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-old(page) { animation: 100ms ease-out both ikigai-vt-out; }
+::view-transition-new(page) { animation: none; }
+@keyframes ikigai-vt-out { to { opacity: 0; } }
+
+/* ── Особенности образов, которые не выразить одними токенами ───────────────────────── */
+
+/* «Крафт»: у антиквы Alegreya x-высота 0.46 против 0.53 у Geist — выравниваем её по x-высоте, чтобы заголовки
+   и подписи не казались мельче текста; бумажное зерно поверх страницы. */
+[data-style="craft"] :is(h1, h2, h3, .title-text, .label-text, .accent-word, .wordmark-text) {
+  font-size-adjust: 0.5;
+}
+html[data-style="craft"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.13 0 0 0 0 0.09 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* «Хардкор»: быстрые переходы без плавности. */
+[data-style="hardcore"] {
+  --duration-fast: 40ms;
+  --duration-base: 60ms;
+  --duration-slow: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Меньше прозрачности — сплошные поверхности вместо размытия. */
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop-blur, .backdrop-blur-md, .backdrop-blur-xl { backdrop-filter: none !important; }
+  :root { --color-backdrop: rgb(10 11 13 / 0.7); }
+}

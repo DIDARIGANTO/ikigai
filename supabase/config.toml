@@ -1,0 +1,7 @@
+# Вебхук Telegram и тик по расписанию вызываются снаружи, без токена пользователя:
+# каждая функция проверяет собственный секрет в заголовке.
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.cron-tick]
+verify_jwt = false

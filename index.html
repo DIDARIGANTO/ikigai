@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru" data-style="signal" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Ikigai — мечты, цели и дела на сегодня в одном месте. Данные хранятся у тебя в браузере." />
+    <meta name="theme-color" content="#080909" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Ikigai" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ikigai" />
+    <meta property="og:description" content="Мечты, цели и дела на сегодня в одном месте." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Образ оформления до первой отрисовки, без вспышки. Тот же алгоритм и те же значения — в src/app/style.ts. -->
+    <script>
+      (function () {
+        // id образа → [цветовая схема, цвет холста для theme-color]. Тест src/app/style.test.ts сверяет их с globals.css.
+        var STYLES = {
+          signal: ['dark', '#080909'],
+          graphite: ['dark', '#0E0F11'],
+          light: ['light', '#F4F4F2'],
+          craft: ['light', '#F4EDE0'],
+          hardcore: ['dark', '#000000']
+        };
+        var id = null;
+        try { id = localStorage.getItem('ikigai.style'); } catch (e) {}
+        if (!id || !Object.prototype.hasOwnProperty.call(STYLES, id)) {
+          // Выбора нет — переносим прежнюю «Тему»: светлая → «Светлый», «как в системе» — по системе, иначе «Сигнал».
+          var legacy = null;
+          try { legacy = localStorage.getItem('ikigai.theme'); } catch (e) {}
+          var sysDark = !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          id = legacy === 'light' || (legacy === 'system' && !sysDark) ? 'light' : 'signal';
+        }
+        var root = document.documentElement;
+        root.setAttribute('data-style', id);
+        root.setAttribute('data-theme', STYLES[id][0]);
+        root.style.colorScheme = STYLES[id][0];
+        var metas = document.querySelectorAll('meta[name="theme-color"]');
+        for (var i = 0; i < metas.length; i++) metas[i].content = STYLES[id][1];
+      })();
+    </script>
+    <!-- Шрифты со своего сервера: предзагружаем кириллицу обоих начертаний (латиница догрузится по unicode-range). -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/node_modules/@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/node_modules/@fontsource-variable/noto-serif-display/files/noto-serif-display-cyrillic-wght-italic.woff2" />
+    <title>Ikigai</title>
+  </head>
+  <body>
+    <noscript>Для работы Ikigai нужен JavaScript. Включи его в настройках браузера и обнови страницу.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

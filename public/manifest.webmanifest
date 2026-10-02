@@ -1,0 +1,36 @@
+{
+  "id": "/",
+  "name": "Ikigai",
+  "short_name": "Ikigai",
+  "description": "Мечты, цели и дела на сегодня — в одном месте.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#080909",
+  "background_color": "#080909",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Новая задача",
+      "short_name": "Задача",
+      "description": "Быстрая запись",
+      "url": "/?new=task",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Сегодня",
+      "short_name": "Сегодня",
+      "description": "План на день",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
