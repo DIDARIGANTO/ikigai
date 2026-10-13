@@ -323,6 +323,19 @@ describe('parseQuick — тип записи', () => {
     expect(p('каждую среду бассейн').date).toBe('2026-09-30');
   });
 
+  it('«по будням» и «каждый будний день» — повтор по будням', () => {
+    has(p('по будням в 10:00 50 исходящих'), { kind: 'reminder', repeat: 'weekdays', time: '10:00', title: '50 исходящих' });
+    has(p('каждый будний день заполнить РНП'), { kind: 'reminder', repeat: 'weekdays', title: 'заполнить РНП' });
+    expect(p('в будни пробежка').repeat).toBe('weekdays');
+    expect(p('по будним дням планёрка').repeat).toBe('weekdays');
+  });
+
+  it('«каждый рабочий день» и «по рабочим дням» — тоже по будням', () => {
+    expect(p('каждый рабочий день в 17:50 заполнить РНП').repeat).toBe('weekdays');
+    expect(p('по рабочим дням отчёт').repeat).toBe('weekdays');
+    expect(p('в рабочие дни отчёт').repeat).toBe('weekdays');
+  });
+
   it('«каждое утро» — ежедневно в 9:00', () => {
     has(p('каждое утро витамины'), { repeat: 'daily', time: '09:00' });
   });

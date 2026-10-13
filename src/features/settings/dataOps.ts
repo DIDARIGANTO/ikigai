@@ -3,10 +3,10 @@ import { COLLECTIONS, type CollectionName } from '@/lib/types';
 import { nowISO } from '@/lib/ids';
 
 /**
- * Эти коллекции демо-данные не трогают: каркас приложения (профиль, доски, колонки, папки блокнота)
- * и долги — это всегда настоящие записи человека, в демо их нет.
+ * Эти коллекции демо-данные не трогают: каркас приложения (профиль, доски, колонки, папки блокнота),
+ * долги, сайты и идеи — это всегда настоящие записи человека, в демо их нет.
  */
-const KEEP_COLLECTIONS: CollectionName[] = ['profiles', 'boards', 'columns', 'noteFolders', 'debts'];
+const KEEP_COLLECTIONS: CollectionName[] = ['profiles', 'boards', 'columns', 'noteFolders', 'debts', 'sites', 'ideas'];
 
 /** Единственный список, который создаётся вместе с каркасом. */
 export const KEPT_LIST_TITLE = 'Купить';

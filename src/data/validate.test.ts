@@ -30,11 +30,13 @@ const GOOD: Record<CollectionName, Record<string, unknown>> = {
     id: 'db1', direction: 'owedToMe', person: 'Асхат', amount: 50000, currency: 'KZT', date: '2026-09-30',
     dueDate: '2026-10-30', note: 'за ремонт', payments: [{ id: 'p1', date: '2026-10-01', amount: 10000 }], ...T,
   },
+  ideas: { id: 'i1', title: 'Приложение для барберов', note: 'Запись и напоминания', status: 'work', source: 'telegram', ...T },
+  sites: { id: 's1', title: 'Кофейня Brew', note: 'Лендинг с меню', status: 'payment', client: 'Асхат', price: 200000, doneAt: '2026-10-05', ...T },
 };
 
 /** Битая, но чинимая строка каждой коллекции и то, что должно получиться. */
 const REPAIRABLE: Record<CollectionName, [Record<string, unknown>, Record<string, unknown>]> = {
-  profiles: [{ timezone: 'Mars/Olympus', morningTime: '9 утра', currency: 'рубли' }, { morningTime: '09:00', currency: 'KZT' }],
+  profiles: [{ timezone: 'Mars/Olympus', morningTime: '9 утра', currency: 'рубли', telegramConfirm: 'да' }, { morningTime: '09:00', currency: 'KZT' }],
   dreams: [{ title: 42, doneAt: 'когда-нибудь', goalId: '' }, { title: '42' }],
   goals: [{ horizon: 'bogus', status: 'maybe', endDate: '2026-02-30' }, { horizon: 'month', status: 'active' }],
   boards: [{ position: NaN, title: null }, { position: 0, title: '' }],
@@ -53,10 +55,13 @@ const REPAIRABLE: Record<CollectionName, [Record<string, unknown>, Record<string
     { direction: 'sideways', person: 7, amount: 'много', currency: 'рубли', dueDate: 'скоро', payments: 'нет', closedAt: 'давно' },
     { direction: 'owedToMe', person: '7', amount: 0, currency: 'KZT', payments: [] },
   ],
+  ideas: [{ title: 42, note: 7, status: 'бред', source: 'email' }, { title: '42', note: '7', source: 'web' }],
+  sites: [{ title: 42, note: 7, status: 'сдан', client: 5, doneAt: 'вчера', price: 'много' }, { title: '42', note: '7', client: '5' }],
 };
 
 /** Поля, которые после починки должны исчезнуть (неверные необязательные). */
 const REMOVED: Partial<Record<CollectionName, string[]>> = {
+  profiles: ['telegramConfirm'],
   dreams: ['doneAt', 'goalId'],
   goals: ['endDate'],
   tasks: ['plannedStart', 'plannedMinutes', 'date', 'actualStart'],
@@ -64,6 +69,8 @@ const REMOVED: Partial<Record<CollectionName, string[]>> = {
   listItems: ['price'],
   dailyLogs: ['energy', 'accuracy'],
   debts: ['dueDate', 'closedAt'],
+  sites: ['status', 'doneAt', 'price'],
+  ideas: ['status'],
 };
 
 /** Строки, которые починить нельзя. */
@@ -117,6 +124,11 @@ describe('normalizeRow', () => {
 
   it.each(Object.keys(UNFIXABLE) as CollectionName[])('%s: drops rows missing a required reference or date', c => {
     expect(normalizeRow(c, { ...GOOD[c], ...UNFIXABLE[c] })).toBeNull();
+  });
+
+  it('reminders: «по будням» is a valid repeat and is kept as is', () => {
+    const row = { ...GOOD.reminders, repeat: 'weekdays' };
+    expect(normalizeRow('reminders', row)).toBe(row);
   });
 
   it('keeps unknown fields (a newer app version may have written them)', () => {

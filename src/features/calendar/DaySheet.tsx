@@ -30,7 +30,7 @@ function TaskLine({ task, onOpen }: { task: Task; onOpen: (t: Task) => void }) {
   const done = task.status === 'done';
   const closed = isClosed(task);
   return (
-    <li className="flex min-h-9 items-center gap-3 rounded-control px-2 hover:bg-fill pointer-coarse:min-h-11">
+    <li className="flex min-h-9 items-start gap-3 rounded-control px-2 py-1 hover:bg-fill pointer-coarse:min-h-11">
       <Checkbox
         checked={done}
         tone={task.area === 'personal' ? 'personal' : 'accent'}
@@ -40,11 +40,12 @@ function TaskLine({ task, onOpen }: { task: Task; onOpen: (t: Task) => void }) {
       <button
         type="button"
         onClick={() => onOpen(task)}
-        className="focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-sm py-1.5 text-left text-small"
+        className="focus-ring flex min-w-0 flex-1 items-baseline gap-2 rounded-sm py-1 text-left text-small"
       >
-        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-mark ${taskDot(task)}`} />
+        <span aria-hidden="true" className={`size-1.5 shrink-0 translate-y-[-1px] rounded-mark ${taskDot(task)}`} />
         {task.plannedStart ? <span className="shrink-0 font-mono text-caption text-muted">{task.plannedStart}</span> : null}
-        <span className={`min-w-0 truncate ${closed ? 'text-muted line-through decoration-muted/60' : 'text-text'}`}>
+        {/* Название переносится на следующую строку, а не обрезается: в окне дня должно быть видно всё, что написано. */}
+        <span className={`min-w-0 break-words ${closed ? 'text-muted line-through decoration-muted/60' : 'text-text'}`}>
           {task.emoji ? <span className="font-emoji mr-1.5 no-underline">{task.emoji}</span> : null}
           {task.title}
         </span>
@@ -98,10 +99,10 @@ function DayContent({
           {reminders.length ? (
             <ul aria-label="Напоминания" className={tasks.length ? 'mt-1 border-t border-border pt-1' : ''}>
               {reminders.map(r => (
-                <li key={r.id} className="flex min-h-9 items-center gap-3 px-2 text-small pointer-coarse:min-h-11">
-                  <ReminderIcon reminder={r} size={16} className="text-muted" />
+                <li key={r.id} className="flex min-h-9 items-baseline gap-3 px-2 py-1.5 text-small pointer-coarse:min-h-11">
+                  <ReminderIcon reminder={r} size={16} className="shrink-0 translate-y-[3px] text-muted" />
                   {r.time ? <span className="shrink-0 font-mono text-caption text-muted">{r.time}</span> : null}
-                  <span className="min-w-0 truncate text-muted-strong">{r.text}</span>
+                  <span className="min-w-0 break-words text-muted-strong">{r.text}</span>
                 </li>
               ))}
             </ul>

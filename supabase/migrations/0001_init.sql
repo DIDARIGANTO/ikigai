@@ -42,6 +42,9 @@ create table if not exists public.bot_drafts (
   status text not null default 'pending',
   created_at timestamptz not null default now()
 );
+-- Что бот записал по этому черновику (коллекция и id): по списку кнопка «Отменить» убирает записи. Добавлено позже,
+-- поэтому отдельной командой: так скрипт работает и поверх уже созданной таблицы.
+alter table public.bot_drafts add column if not exists created jsonb;
 alter table public.bot_drafts enable row level security;
 
 create table if not exists public.sent_digests (

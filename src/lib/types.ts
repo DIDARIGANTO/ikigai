@@ -10,7 +10,7 @@ export type Horizon = 'years' | 'year' | 'month' | 'week';
 export type GoalStatus = 'active' | 'done' | 'dropped';
 export type TaskStatus = 'todo' | 'doing' | 'done' | 'skipped';
 export type Area = 'work' | 'personal';
-export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 export type Source = 'web' | 'telegram';
 export type ColumnKind = 'todo' | 'doing' | 'done';
 
@@ -20,6 +20,7 @@ export interface Profile extends Base {
   morningTime: string;     // 'HH:mm'
   currency: string;        // 'KZT'
   telegramChatId?: string;
+  telegramConfirm?: boolean;   // true — бот сначала показывает разбор и ждёт «Сохранить»; иначе записывает сразу
   weekGoalId?: ID;
   demoLoaded?: boolean;
   name?: string;              // как обращаться в приветствии
@@ -115,6 +116,24 @@ export interface Debt extends Base {
   closedAt?: string;       // ISO — закрыт без полной выплаты
 }
 
+/** Сайт в разделе «Сайты»: заказ на сайт от встречи с клиентом до оплаты. */
+export interface Site extends Base {
+  title: string;           // «Сайт кофейни»
+  note?: string;           // что это
+  status?: 'meeting' | 'work' | 'payment' | 'done'; // этап: встреча → в работе (по умолчанию) → жду оплату → реализован
+  client?: string;         // чей сайт
+  price?: number;          // сумма сделки, в валюте профиля
+  doneAt?: string;         // 'YYYY-MM-DD' — когда реализован
+}
+
+/** Идея в разделе «Идеи»: пришла в голову — записал; потом берёшь в работу и доводишь. */
+export interface Idea extends Base {
+  title: string;
+  note?: string;
+  status?: 'new' | 'work' | 'done'; // нет статуса — новая
+  source: Source;
+}
+
 /** Итог дня: закрывается вечером на «Сегодня». `id` — дата дня. */
 export interface DailyLog extends Base {
   date: string;            // 'YYYY-MM-DD', совпадает с id
@@ -142,6 +161,8 @@ export interface Schema {
   notes: Note;
   dailyLogs: DailyLog;
   debts: Debt;
+  sites: Site;
+  ideas: Idea;
 }
 
 export type CollectionName = keyof Schema;
@@ -149,5 +170,5 @@ export type Row<K extends CollectionName> = Schema[K];
 
 export const COLLECTIONS: CollectionName[] = [
   'profiles', 'dreams', 'goals', 'boards', 'columns', 'tasks',
-  'reminders', 'lists', 'listItems', 'noteFolders', 'notes', 'dailyLogs', 'debts',
+  'reminders', 'lists', 'listItems', 'noteFolders', 'notes', 'dailyLogs', 'debts', 'sites', 'ideas',
 ];

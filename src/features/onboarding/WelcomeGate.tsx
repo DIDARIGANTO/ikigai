@@ -11,7 +11,7 @@ import { countContent, shouldOnboard } from './logic';
 import { WelcomeFlow } from './WelcomeFlow';
 
 /** Что считается «своим содержимым» человека. Доски, колонки и папки — каркас, не в счёт. */
-const CONTENT: CollectionName[] = ['dreams', 'goals', 'tasks', 'reminders', 'lists', 'listItems', 'notes', 'debts'];
+const CONTENT: CollectionName[] = ['dreams', 'goals', 'tasks', 'reminders', 'lists', 'listItems', 'notes', 'debts', 'sites', 'ideas'];
 
 interface Decision {
   show: boolean;

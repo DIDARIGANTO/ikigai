@@ -4,7 +4,6 @@ import { Archive, Check, ChevronRight, Coins, Pencil, Plus, Trash2, Undo2 } from
 import type { Debt, DebtDirection, DebtPayment } from '@/lib/types';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { Menu } from '@/components/ui/Menu';
 import type { MenuEntry } from '@/components/ui/Menu';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -22,21 +21,29 @@ import {
   leftOf,
   paidOf,
   paidRatio,
+  recordReturn,
+  RETURNED_LABEL,
+  removePayment,
   reopen,
+  returnsOf,
   settle,
   splitDebts,
   totalsOf,
 } from '@/lib/domain/debts';
-import type { Due } from '@/lib/domain/debts';
+import type { Due, ReturnEntry, ReturnInput } from '@/lib/domain/debts';
 import { newId, nowISO } from '@/lib/ids';
 import { created, deleted, updated, useUndoable } from '@/lib/undo';
 import { plural } from '@/features/lists/money';
 import { DebtEditor } from './DebtEditor';
 import type { DebtFields } from './DebtEditor';
 import { PaymentDialog } from './PaymentDialog';
+import { ReturnDialog } from './ReturnDialog';
 import { formatDebtAmount, formatTotals } from './money';
 
 const FOCUS = 'focus-ring-inset';
+
+/** Сколько возвратов видно сразу: старые уходят под «Показать все», чтобы блок не вытягивался вечно. */
+const RETURNED_PREVIEW = 5;
 
 /** Что сказать о сроке: просрочено — красным, скоро — янтарным, потом — просто дата. */
 function dueLabel(due: Due, dueDate: string): { text: string; className: string } | null {
@@ -62,6 +69,7 @@ interface RowActions {
   pay: (d: Debt) => void;
   forgive: (d: Debt) => void;
   reopen: (d: Debt) => void;
+  removeReturn: (d: Debt, paymentId: string) => void;
   remove: (d: Debt) => void;
 }
 
@@ -128,7 +136,84 @@ function OpenRow({ debt, today, actions }: { debt: Debt; today: string; actions:
   );
 }
 
-/** Строка закрытого долга: приглушённая, с направлением и тем, как он закрылся. */
+/** Строка журнала: кто кому вернул, когда и сколько; если по долгу ещё что-то осталось, видно и это. */
+function ReturnRow({ entry, actions }: { entry: ReturnEntry; actions: RowActions }) {
+  const { debt, payment, left } = entry;
+  const entries: MenuEntry[] = [
+    { type: 'item', label: 'Изменить долг', icon: <Pencil size={14} />, onSelect: () => actions.open(debt) },
+    { type: 'item', label: 'Убрать возврат', icon: <Undo2 size={14} />, onSelect: () => actions.removeReturn(debt, payment.id) },
+    { type: 'separator' },
+    { type: 'item', label: 'Удалить долг', icon: <Trash2 size={14} />, danger: true, onSelect: () => actions.remove(debt) },
+  ];
+  return (
+    <li className="group flex items-center border-b border-border pr-2 last:border-b-0 hover:bg-fill focus-within:bg-fill">
+      <button
+        type="button"
+        onClick={() => actions.open(debt)}
+        className={`flex min-h-12 min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 text-left ${FOCUS}`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-body font-medium text-text">{debt.person}</span>
+          <span className="block truncate text-small text-muted">
+            {RETURNED_LABEL[debt.direction]} · {formatShortRu(payment.date)}
+            {left > 0 ? ` · осталось ${formatDebtAmount(left, debt.currency)}` : ''}
+          </span>
+        </span>
+        <span className="shrink-0 font-mono text-body tabular-nums text-success-strong">{formatDebtAmount(payment.amount, debt.currency)}</span>
+      </button>
+      <Menu label={`Действия: ${debt.person}`} entries={entries} size="sm" triggerClassName="hover-reveal" />
+    </li>
+  );
+}
+
+/** Блок «Вернули долг»: журнал возвратов обоих направлений, недавние выше; «+» записывает новый возврат. */
+function ReturnsBlock({ returns, actions, onAdd }: { returns: ReturnEntry[]; actions: RowActions; onAdd: () => void }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? returns : returns.slice(0, RETURNED_PREVIEW);
+  return (
+    <section aria-labelledby="debts-returns" className="min-w-0">
+      <div className="mb-2 flex items-center gap-2">
+        <h2 id="debts-returns" className="flex min-w-0 items-center gap-2 label-text text-muted">
+          Вернули долг
+          <span className="font-mono tabular-nums">{returns.length}</span>
+        </h2>
+        <IconButton size="sm" variant="ghost" className="ml-auto" aria-label="Добавить: вернули долг" onClick={onAdd}>
+          <Plus size={16} aria-hidden="true" />
+        </IconButton>
+      </div>
+      <Card as="div" className="overflow-hidden">
+        {returns.length ? (
+          <>
+            <ul>
+              {shown.map(r => (
+                <ReturnRow key={`${r.debt.id}/${r.payment.id}`} entry={r} actions={actions} />
+              ))}
+            </ul>
+            {returns.length > RETURNED_PREVIEW ? (
+              <button
+                type="button"
+                onClick={() => setAll(v => !v)}
+                className={`flex h-10 w-full items-center px-4 text-left text-small font-medium text-muted hover:bg-fill hover:text-text ${FOCUS}`}
+              >
+                {all ? 'Свернуть' : `Показать все ${returns.length}`}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <div className="px-4 py-4">
+            <p className="text-small text-muted">Когда долг вернут, он окажется здесь.</p>
+            <Button variant="ghost" size="sm" className="mt-2 -ml-2" onClick={onAdd}>
+              <Plus size={16} aria-hidden="true" />
+              Записать возврат
+            </Button>
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+/** Строка закрытого без оплаты долга: приглушённая, с направлением и тем, как он закрылся. */
 function ClosedRow({ debt, actions }: { debt: Debt; actions: RowActions }) {
   const manual = !!debt.closedAt && leftOf(debt) > 0;
   const entries: MenuEntry[] = [
@@ -249,9 +334,11 @@ export function DebtsPage() {
 
   const [editor, setEditor] = useState<{ debt: Debt | null; direction: DebtDirection } | null>(null);
   const [paying, setPaying] = useState<Debt | null>(null);
+  const [returning, setReturning] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
 
   const { open, closed } = useMemo(() => splitDebts(debts), [debts]);
+  const returns = useMemo(() => returnsOf(debts), [debts]);
   const totals = useMemo(() => totalsOf(debts), [debts]);
   const balance = useMemo(() => balanceOf(totals), [totals]);
 
@@ -289,12 +376,21 @@ export function DebtsPage() {
     await commit(isClosed(next) ? 'Долг погашен' : 'Возврат записан', [updated('debts', target, next)]);
   };
 
+  const saveReturn = async (input: ReturnInput) => {
+    const { updated: changed, created: added } = recordReturn(debts, input, newId, nowISO());
+    await commit('Возврат записан', [
+      ...changed.map(c => updated('debts', c.before, c.after)),
+      ...added.map(d => created('debts', d)),
+    ]);
+  };
+
   const actions: RowActions = {
     open: d => setEditor({ debt: d, direction: d.direction }),
     settle: d => void commit('Долг погашен', [updated('debts', d, settle(d, today, newId()))]),
     pay: d => setPaying(d),
     forgive: d => void commit('Долг закрыт без оплаты', [updated('debts', d, forgive(d, nowISO()))]),
     reopen: d => void commit('Долг снова открыт', [updated('debts', d, reopen(d))]),
+    removeReturn: (d, paymentId) => void commit('Возврат убран', [updated('debts', d, removePayment(d, paymentId))]),
     remove: d => void commit('Долг удалён', [deleted('debts', d)]),
   };
 
@@ -312,85 +408,65 @@ export function DebtsPage() {
         }
       />
 
-      {debts.length === 0 ? (
-        <Card className="mt-6">
-          <EmptyState
-            compact
-            k="debts"
-            title="Долгов пока нет"
-            description="Записывай, кто должен тебе и кому должен ты: сумму, срок и возвраты по частям."
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button variant="primary" size="sm" onClick={() => add('owedToMe')}>
-                  <Plus size={16} aria-hidden="true" />
-                  Мне должны
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => add('iOwe')}>
-                  <Plus size={16} aria-hidden="true" />
-                  Я должен
-                </Button>
-              </div>
-            }
-          />
+      {debts.length > 0 ? (
+        <Card className="animate-in mt-6 grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="Итоги">
+          <Stat label={DIRECTION_LABEL.owedToMe} sums={totals.owedToMe} fallbackCurrency={profile.currency} />
+          <Stat label={DIRECTION_LABEL.iOwe} sums={totals.iOwe} fallbackCurrency={profile.currency} />
+          <Stat label="Баланс" sums={balance} fallbackCurrency={profile.currency} signed />
         </Card>
-      ) : (
-        <>
-          <Card className="animate-in mt-6 grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="Итоги">
-            <Stat label={DIRECTION_LABEL.owedToMe} sums={totals.owedToMe} fallbackCurrency={profile.currency} />
-            <Stat label={DIRECTION_LABEL.iOwe} sums={totals.iOwe} fallbackCurrency={profile.currency} />
-            <Stat label="Баланс" sums={balance} fallbackCurrency={profile.currency} signed />
+      ) : null}
+
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+        <Column
+          direction="owedToMe"
+          debts={open.owedToMe}
+          sums={totals.owedToMe}
+          fallbackCurrency={profile.currency}
+          today={today}
+          actions={actions}
+          onAdd={add}
+        />
+        <Column
+          direction="iOwe"
+          debts={open.iOwe}
+          sums={totals.iOwe}
+          fallbackCurrency={profile.currency}
+          today={today}
+          actions={actions}
+          onAdd={add}
+        />
+        <div className="lg:col-span-2">
+          <ReturnsBlock returns={returns} actions={actions} onAdd={() => setReturning(true)} />
+        </div>
+      </div>
+
+      {closed.length ? (
+        <section className="mt-6" aria-label="Долги, закрытые без оплаты">
+          <Card as="div" className="overflow-hidden">
+            <button
+              type="button"
+              aria-expanded={showClosed}
+              onClick={() => setShowClosed(v => !v)}
+              className={`flex h-10 w-full items-center gap-2 px-4 text-left text-small font-medium text-muted hover:bg-fill hover:text-text ${FOCUS}`}
+            >
+              <ChevronRight
+                size={16}
+                aria-hidden="true"
+                className={`transition-transform duration-(--duration-base) ease-out-soft ${showClosed ? 'rotate-90' : ''}`}
+              />
+              <h2>Закрыты без оплаты</h2>
+              <span className="font-mono tabular-nums">{closed.length}</span>
+            </button>
+            {showClosed ? (
+              <ul className="animate-in border-t border-border">
+                {closed.map(d => (
+                  <ClosedRow key={d.id} debt={d} actions={actions} />
+                ))}
+              </ul>
+            ) : null}
           </Card>
-
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
-            <Column
-              direction="owedToMe"
-              debts={open.owedToMe}
-              sums={totals.owedToMe}
-              fallbackCurrency={profile.currency}
-              today={today}
-              actions={actions}
-              onAdd={add}
-            />
-            <Column
-              direction="iOwe"
-              debts={open.iOwe}
-              sums={totals.iOwe}
-              fallbackCurrency={profile.currency}
-              today={today}
-              actions={actions}
-              onAdd={add}
-            />
-          </div>
-
-          {closed.length ? (
-            <section className="mt-6" aria-label="Закрытые долги">
-              <Card as="div" className="overflow-hidden">
-                <button
-                  type="button"
-                  aria-expanded={showClosed}
-                  onClick={() => setShowClosed(v => !v)}
-                  className={`flex h-10 w-full items-center gap-2 px-4 text-left text-small font-medium text-muted hover:bg-fill hover:text-text ${FOCUS}`}
-                >
-                  <ChevronRight
-                    size={16}
-                    aria-hidden="true"
-                    className={`transition-transform duration-(--duration-base) ease-out-soft ${showClosed ? 'rotate-90' : ''}`}
-                  />
-                  <h2>Закрытые</h2>
-                  <span className="font-mono tabular-nums">{closed.length}</span>
-                </button>
-                {showClosed ? (
-                  <ul className="animate-in border-t border-border">
-                    {closed.map(d => (
-                      <ClosedRow key={d.id} debt={d} actions={actions} />
-                    ))}
-                  </ul>
-                ) : null}
-              </Card>
-            </section>
-          ) : null}
-        </>
-      )}
+        </section>
+      ) : null}
 
       {current ? (
         <DebtEditor
@@ -402,6 +478,10 @@ export function DebtsPage() {
           onDelete={d => actions.remove(d)}
           onClose={closeEditor}
         />
+      ) : null}
+
+      {returning ? (
+        <ReturnDialog debts={debts} defaultCurrency={profile.currency} onSave={saveReturn} onClose={() => setReturning(false)} />
       ) : null}
 
       {paying ? (

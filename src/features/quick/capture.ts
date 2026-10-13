@@ -36,6 +36,7 @@ export function chipTokens(tokens: ParseToken[]): ParseToken[] {
 export const REPEAT_TEXT: Record<Repeat, string> = {
   none: 'один раз',
   daily: 'каждый день',
+  weekdays: 'по будням',
   weekly: 'каждую неделю',
   monthly: 'каждый месяц',
   yearly: 'каждый год',

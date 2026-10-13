@@ -140,6 +140,7 @@ function DayCell({
   const { setNodeRef, isOver } = useDroppable({ id: dayDroppableId(iso) });
   const moreRef = useRef<HTMLButtonElement>(null);
   const cellRef = useRef<HTMLButtonElement>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
   const today = iso === todayISO();
   const outside = !sameMonth(iso, cursor);
   const weekend = isWeekendColumn(index);
@@ -191,11 +192,20 @@ function DayCell({
   }
 
   return (
+    // Клик по клетке — окно дня со всем, что там написано: плашки обрезают названия, а напоминания сами не нажимаются.
+    // Кнопки внутри (число, «+», задача, «+N ещё») делают своё; клавиатуре для этого есть число дня и «+N ещё».
     <div
-      ref={setNodeRef}
+      ref={el => {
+        setNodeRef(el);
+        boxRef.current = el;
+      }}
       data-day={iso}
       data-kbd-target={target || undefined}
-      className={`group relative min-h-28 lg:min-h-32 ${background} ${hot ? 'ring-2 ring-inset ring-accent' : ''}`}
+      onClick={e => {
+        if ((e.target as HTMLElement).closest('button, a')) return;
+        onMore(iso, boxRef);
+      }}
+      className={`group relative min-h-28 cursor-pointer lg:min-h-32 ${background} ${hot ? 'ring-2 ring-inset ring-accent' : ''}`}
     >
       <div className="flex h-full flex-col gap-1 p-1.5">
         <div className="flex items-center gap-1.5">

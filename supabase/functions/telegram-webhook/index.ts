@@ -1,11 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
-// Вебхук Telegram: привязка чата, разбор сообщений через ИИ с подтверждением,
-// кнопки «Начать» / «Закончить» у задач.
-import { send, edit, answer, esc } from '../_shared/tg.ts';
+// Вебхук Telegram: привязка чата, разбор текста и голосовых сообщений через ИИ, запись сразу
+// (с кнопкой «Отменить») или с подтверждением, кнопки «Начать» / «Закончить» у задач.
+import { send, edit, answer, esc, typing, downloadFile } from '../_shared/tg.ts';
 import { db, rows, putRow, profileByChat, newId, nowISO } from '../_shared/db.ts';
 import { parseMessage, type ParsedItem } from '../_shared/ai.ts';
-import { renderDraft } from '../_shared/render.ts';
+import { renderDraft, renderSaved, renderUndone } from '../_shared/render.ts';
 import { localClock, isRunning } from '../_shared/domain.ts';
+import { sttConfig, voiceOf, checkVoice, transcribe, usableTranscript, audioFilename } from '../_shared/stt.ts';
 
 const SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET')!;
 const DAILY_AI_LIMIT = 200;
@@ -22,9 +23,20 @@ async function aiAllowed(userId: string, timezone: string): Promise<boolean> {
   return true;
 }
 
-async function saveItems(userId: string, items: ParsedItem[]) {
+/** Что именно записал бот: по этому списку «Отменить» убирает записи. */
+interface Created { collection: string; id: string }
+
+/** `created` пополняется по ходу записи: если запись оборвётся на середине, по нему видно, что откатывать. */
+async function saveItems(userId: string, items: ParsedItem[], created: Created[] = []): Promise<Created[]> {
+  const put = async (collection: string, row: { id: string; [key: string]: unknown }) => {
+    await putRow(userId, collection, row);
+    created.push({ collection, id: row.id });
+  };
   const now = nowISO();
   const base = { createdAt: now, updatedAt: now, source: 'telegram' as const };
+  // «Сегодня» считаем по часовому поясу человека: ночью по Алматы в UTC ещё вчера, и напоминание без даты ушло бы в прошлое.
+  const profiles = await rows<any>(userId, 'profiles');
+  const today = localClock(new Date(), (profiles[0]?.timezone as string | undefined) ?? 'Asia/Almaty').date;
   const lists = await rows<any>(userId, 'lists');
   const folders = await rows<any>(userId, 'noteFolders');
   const boards = await rows<any>(userId, 'boards');
@@ -33,14 +45,14 @@ async function saveItems(userId: string, items: ParsedItem[]) {
     if (i.type === 'task') {
       const board = boards.find((b: any) => (i.area === 'work' ? b.title === 'Работа' : b.title === 'Личное')) ?? boards[0];
       const col = columns.find((c: any) => c.boardId === board?.id && c.kind === 'todo');
-      await putRow(userId, 'tasks', {
+      await put('tasks', {
         id: newId(), title: i.title, area: i.area ?? 'personal', boardId: board?.id, columnId: col?.id,
         goalId: i.goal_id, date: i.date, plannedStart: i.time, plannedMinutes: i.minutes,
         status: 'todo', rescheduleCount: 0, kind: 'task', position: Date.now(), ...base,
       });
     } else if (i.type === 'reminder') {
-      await putRow(userId, 'reminders', {
-        id: newId(), text: i.title, date: i.date ?? new Date().toISOString().slice(0, 10),
+      await put('reminders', {
+        id: newId(), text: i.title, date: i.date ?? today,
         time: i.time, repeat: i.repeat ?? 'none', ...base,
       });
     } else if (i.type === 'list_item') {
@@ -52,12 +64,15 @@ async function saveItems(userId: string, items: ParsedItem[]) {
         await putRow(userId, 'lists', list);
         lists.push(list);
       }
-      await putRow(userId, 'listItems', { id: newId(), listId: list.id, text: i.title, position: Date.now(), createdAt: now, updatedAt: now });
+      await put('listItems', { id: newId(), listId: list.id, text: i.title, position: Date.now(), createdAt: now, updatedAt: now });
+    } else if (i.type === 'idea') {
+      await put('ideas', { id: newId(), title: i.title, status: 'new', ...base });
     } else {
       const inbox = folders.find((f: any) => f.title === 'Входящие') ?? folders[0];
-      await putRow(userId, 'notes', { id: newId(), folderId: inbox?.id, title: i.title.slice(0, 80), body: i.title, ...base });
+      await put('notes', { id: newId(), folderId: inbox?.id, title: i.title.slice(0, 80), body: i.title, ...base });
     }
   }
+  return created;
 }
 
 /** Запасной путь: если ИИ недоступен или не понял, текст не теряется — он ложится в блокнот. */
@@ -112,6 +127,18 @@ Deno.serve(async (req: Request) => {
         if (!marked?.length) { await answer(cq.id, 'Уже обработано'); return new Response('ok'); }
         await answer(cq.id);
         await send(chatId, 'Напиши, что исправить, одним сообщением.');
+      } else if (action === 'undo') {
+        const { data: d } = await db.from('bot_drafts').select('*').eq('id', id).eq('user_id', userId).maybeSingle();
+        if (!d || d.status !== 'saved') { await answer(cq.id, 'Уже обработано'); return new Response('ok'); }
+        // Статус меняем ДО удаления: повторное нажатие не найдёт «saved» и не пойдёт по второму кругу.
+        const { data: claimed } = await db.from('bot_drafts').update({ status: 'undone' })
+          .eq('id', id).eq('user_id', userId).eq('status', 'saved').select('id');
+        if (!claimed?.length) { await answer(cq.id, 'Уже обработано'); return new Response('ok'); }
+        for (const c of (d.created ?? []) as Created[]) {
+          await db.from('rows').delete().eq('user_id', userId).eq('collection', c.collection).eq('id', c.id);
+        }
+        await edit(chatId, cq.message.message_id, renderUndone());
+        await answer(cq.id, 'Отменено');
       } else if (action === 'start' || action === 'finish') {
         const tasks = await rows<any>(userId, 'tasks');
         const t = tasks.find((x: any) => x.id === id);
@@ -149,7 +176,7 @@ Deno.serve(async (req: Request) => {
   const msg = update.message;
   if (!msg?.chat) return new Response('ok');
   const chatId = String(msg.chat.id);
-  const text: string = msg.text ?? '';
+  let text: string = msg.text ?? '';
 
   // Привязка
   if (text.startsWith('/start')) {
@@ -179,9 +206,13 @@ Deno.serve(async (req: Request) => {
     };
     await db.from('rows').upsert({ collection: 'profiles', id: 'me', user_id: l.user_id, data: profile, updated_at: nowISO() });
     await db.from('bot_links').delete().eq('code', code);
+    const how = sttConfig(name => Deno.env.get(name))
+      ? 'Диктуй голосовым сообщением или пиши'
+      : 'Пиши (или диктуй клавиатурой телефона: микрофон рядом с полем ввода)';
     await send(
       chatId,
-      '⛩ Подключено. Пиши мне задачи, напоминания, покупки и мысли — я разложу их по местам. Утром в '
+      `✅ Подключено. ${how}: дела, покупки, напоминания и мысли — я разложу их по местам и запишу сразу. `
+        + 'Под каждой записью есть кнопка «↩️ Отменить». Утром в '
         + esc(String(profile.morningTime ?? '09:00')) + ' пришлю сводку.',
     );
     return new Response('ok');
@@ -190,8 +221,38 @@ Deno.serve(async (req: Request) => {
   const link = await profileByChat(chatId);
   if (!link) { await send(chatId, 'Это личный бот.'); return new Response('ok'); }
   const { userId, profile } = link;
-  if (!text.trim()) { await send(chatId, 'Пока понимаю только текст.'); return new Response('ok'); }
   const tz = (profile.timezone as string | undefined) ?? 'Asia/Almaty';
+
+  // Голосовое сообщение: скачиваем запись, распознаём и дальше ведём как обычный текст.
+  let heard: string | undefined;
+  const voice = text.trim() ? null : voiceOf(msg);
+  if (voice) {
+    const problem = checkVoice(voice);
+    if (problem) { await send(chatId, problem); return new Response('ok'); }
+    const stt = sttConfig(name => Deno.env.get(name));
+    if (!stt) {
+      await send(
+        chatId,
+        'Голосовые пока не включены. Надиктуй текстом: нажми микрофон на клавиатуре телефона и отправь сообщение — '
+          + 'я разберу его так же. Как включить голосовые — в инструкции, раздел 5.3.1.',
+      );
+      return new Response('ok');
+    }
+    await typing(chatId);
+    try {
+      const file = await downloadFile(voice.fileId);
+      if (!file) throw new Error('не удалось скачать запись');
+      const said = usableTranscript(await transcribe({ blob: file, filename: audioFilename(voice.mime) }, stt));
+      if (!said) { await send(chatId, 'Не расслышал. Скажи ещё раз, чуть ближе к микрофону.'); return new Response('ok'); }
+      text = said;
+      heard = said;
+    } catch (e) {
+      console.error(e);
+      await send(chatId, 'Не получилось распознать голос. Попробуй ещё раз или напиши текстом.');
+      return new Response('ok');
+    }
+  }
+  if (!text.trim()) { await send(chatId, 'Понимаю текст и голосовые сообщения.'); return new Response('ok'); }
 
   // Исправлением считается только сообщение после кнопки «Изменить»: непрочитанный черновик
   // в статусе `pending` остаётся ждать своего решения, а этот текст станет новым черновиком.
@@ -234,11 +295,40 @@ Deno.serve(async (req: Request) => {
       await db.from('bot_drafts').update({ status: 'cancelled' })
         .eq('id', editingDraft.id).eq('user_id', userId);
     }
+
+    // По умолчанию записываем сразу и даём «Отменить»; подтверждение включается в настройках сайта.
+    if (profile.telegramConfirm !== true) {
+      const created: Created[] = [];
+      try {
+        await saveItems(userId, items, created);
+      } catch (e) {
+        // Запись оборвалась на середине: убираем уже записанное, чтобы не осталось половины списка, а текст не теряем.
+        console.error(e);
+        for (const c of created) {
+          await db.from('rows').delete().eq('user_id', userId).eq('collection', c.collection).eq('id', c.id);
+        }
+        await saveAsNote(userId, text);
+        await send(chatId, 'Не удалось записать дела. Сохранил текст заметкой во «Входящие», ничего не потеряно.');
+        return new Response('ok');
+      }
+      const { data: saved, error: draftError } = await db.from('bot_drafts')
+        .insert({ user_id: userId, chat_id: chatId, payload: items, source_text: sourceText, status: 'saved', created })
+        .select('id').single();
+      if (draftError || !saved) {
+        // Записи уже в базе — без кнопки «Отменить», но человек должен узнать, что всё записано.
+        console.error(draftError);
+        await send(chatId, renderSaved(items, heard));
+        return new Response('ok');
+      }
+      await send(chatId, renderSaved(items, heard), [[{ text: '↩️ Отменить', callback_data: `undo:${saved.id}` }]]);
+      return new Response('ok');
+    }
+
     const { data: d, error } = await db.from('bot_drafts')
       .insert({ user_id: userId, chat_id: chatId, payload: items, source_text: sourceText })
       .select('id').single();
     if (error || !d) throw error ?? new Error('draft not created');
-    await send(chatId, renderDraft(items), [[
+    await send(chatId, renderDraft(items, heard), [[
       { text: '✅ Сохранить', callback_data: `save:${d.id}` },
       { text: '✏️ Изменить', callback_data: `edit:${d.id}` },
       { text: '✖️ Отмена', callback_data: `cancel:${d.id}` },

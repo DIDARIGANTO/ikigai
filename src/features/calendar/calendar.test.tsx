@@ -70,6 +70,68 @@ describe('MonthView: перенос с клавиатуры', () => {
   });
 });
 
+describe('MonthView: клик по дню', () => {
+  const DAY = '2026-09-14';
+  const t = task('Описать идею сайта кофейни подробно', { date: DAY, plannedStart: '09:00' });
+  const r = reminder('Позвонить Асхату и обсудить сроки по сайту кофейни', { date: DAY, time: '10:00' });
+  const onPickDay = vi.fn();
+  const onOpenTask = vi.fn();
+  const setup = () =>
+    render(
+      <MonthView
+        cursor={DAY}
+        days={monthGrid(DAY)}
+        tasksFor={iso => (iso === DAY ? [t] : [])}
+        remindersFor={iso => (iso === DAY ? [r] : [])}
+        onOpenTask={onOpenTask}
+        onPickDay={onPickDay}
+        onCreate={vi.fn()}
+      />,
+    );
+  const cell = (c: HTMLElement) => c.querySelector<HTMLElement>(`[data-day="${DAY}"]`) as HTMLElement;
+
+  beforeEach(() => {
+    onPickDay.mockClear();
+    onOpenTask.mockClear();
+  });
+
+  it('клик по пустому месту клетки открывает окно дня: там названия целиком', () => {
+    const { container } = setup();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(cell(container));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('14 сентября')).toBeInTheDocument();
+    expect(within(dialog).getByText('Описать идею сайта кофейни подробно')).toBeInTheDocument();
+    expect(within(dialog).getByText('Позвонить Асхату и обсудить сроки по сайту кофейни')).toBeInTheDocument();
+  });
+
+  it('клик по напоминанию в клетке тоже открывает окно дня', () => {
+    const { container } = setup();
+    fireEvent.click(within(cell(container)).getByText('Позвонить Асхату и обсудить сроки по сайту кофейни'));
+    expect(within(screen.getByRole('dialog')).getByText('14 сентября')).toBeInTheDocument();
+  });
+
+  it('число дня открывает день целиком, а не окно', () => {
+    const { container } = setup();
+    fireEvent.click(within(cell(container)).getByRole('button', { name: /^Открыть день/ }));
+    expect(onPickDay).toHaveBeenCalledWith(DAY);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('клик по задаче открывает задачу, а не окно дня', () => {
+    const { container } = setup();
+    fireEvent.click(within(cell(container)).getByRole('button', { name: /Описать идею/ }));
+    expect(onOpenTask).toHaveBeenCalledWith(t);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('плашки подписаны полным названием: его видно при наведении', () => {
+    const { container } = setup();
+    expect(within(cell(container)).getByRole('button', { name: /Описать идею/ })).toHaveAttribute('title', 'Описать идею сайта кофейни подробно');
+    expect(within(cell(container)).getByTitle('Позвонить Асхату и обсудить сроки по сайту кофейни')).toBeInTheDocument();
+  });
+});
+
 describe('DaySheet', () => {
   it('показывает задачи, напоминания и итог дня; «Задача» создаёт на этот день', () => {
     const onCreate = vi.fn();

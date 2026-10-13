@@ -1,11 +1,13 @@
-import type { Debt, Dream, Goal, List, ListItem, Note, Reminder, Task } from '@/lib/types';
+import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Site, Task } from '@/lib/types';
 import type { SectionKey } from '@/lib/icons';
 import { formatShortRu, todayISO } from '@/lib/dates';
 import { nextOccurrence } from '@/lib/domain/reminders';
 import { DIRECTION_LABEL, isClosed, leftOf } from '@/lib/domain/debts';
+import { statusOf as ideaStatusOf } from '@/lib/domain/ideas';
+import { STATUS_HINT, statusOf } from '@/lib/domain/sites';
 import { formatDebtAmount } from '@/features/debts/money';
 
-export type SearchKind = 'task' | 'note' | 'listItem' | 'goal' | 'dream' | 'reminder' | 'debt';
+export type SearchKind = 'task' | 'note' | 'listItem' | 'goal' | 'dream' | 'reminder' | 'debt' | 'site' | 'idea';
 
 export interface SearchHit {
   /** Уникальный ключ строки: вид + идентификатор. */
@@ -36,6 +38,8 @@ export interface SearchData {
   dreams: Dream[];
   reminders: Reminder[];
   debts: Debt[];
+  sites: Site[];
+  ideas: Idea[];
 }
 
 export const MAX_PER_GROUP = 8;
@@ -192,6 +196,40 @@ const SPECS: GroupSpec[] = [
           // «Мне должны · 40 000 ₸» или «Я должен · закрыт».
           subtitle: `${DIRECTION_LABEL[x.direction]} · ${isClosed(x) ? 'закрыт' : formatDebtAmount(leftOf(x), x.currency)}`,
           to: `/debts?debt=${x.id}`,
+        })),
+  },
+  {
+    kind: 'site',
+    label: 'Сайты',
+    icon: 'sites',
+    collect: (q, d) =>
+      d.sites
+        .filter(x => hit(x.title, q) || hit(x.note, q) || hit(x.client, q))
+        .map(x => ({
+          key: `site:${x.id}`,
+          kind: 'site' as const,
+          id: x.id,
+          title: x.title,
+          // «Асхат · жду оплату»; у сайта «в работе» этапа в подписи нет, а без клиента может не быть и подписи.
+          subtitle: [x.client, STATUS_HINT[statusOf(x)]].filter(Boolean).join(' · ') || undefined,
+          to: `/sites?site=${x.id}`,
+        })),
+  },
+  {
+    kind: 'idea',
+    label: 'Идеи',
+    icon: 'ideas',
+    collect: (q, d) =>
+      d.ideas
+        .filter(x => hit(x.title, q) || hit(x.note, q))
+        .map(x => ({
+          key: `idea:${x.id}`,
+          kind: 'idea' as const,
+          id: x.id,
+          title: x.title,
+          // У новой идеи этапа в подписи нет: это обычное состояние.
+          subtitle: ideaStatusOf(x) === 'work' ? 'в работе' : ideaStatusOf(x) === 'done' ? 'реализована' : undefined,
+          to: `/ideas?idea=${x.id}`,
         })),
   },
 ];

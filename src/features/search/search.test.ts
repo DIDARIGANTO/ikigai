@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Debt, Dream, Goal, List, ListItem, Note, Reminder, Task } from '@/lib/types';
+import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Site, Task } from '@/lib/types';
 import { buildSearch, flatHits, MAX_PER_GROUP } from './search';
 import type { SearchData } from './search';
 
@@ -35,6 +35,8 @@ const debt = (id: string, person: string, over: Partial<Debt> = {}): Debt => ({
   ...base,
   ...over,
 });
+const site = (id: string, title: string, client?: string, noteText?: string, status?: Site['status']): Site => ({ id, title, client, note: noteText, status, ...base });
+const idea = (id: string, title: string, noteText?: string, status?: Idea['status']): Idea => ({ id, title, note: noteText, status, source: 'web', ...base });
 const reminder = (id: string, text: string): Reminder => ({ id, text, date: '2026-09-20', repeat: 'none', ...base });
 
 const data: SearchData = {
@@ -46,6 +48,8 @@ const data: SearchData = {
   dreams: [dream('d1', 'Побывать в Японии')],
   reminders: [reminder('r1', 'Оплатить интернет')],
   debts: [debt('b1', 'Асхат', { note: 'за ремонт' }), debt('b2', 'Марат', { direction: 'iOwe', amount: 12000, closedAt: '2026-09-12T00:00:00.000Z' })],
+  sites: [site('w1', 'Кофейня Brew', 'Асхат', 'лендинг с меню', 'payment'), site('w2', 'Студия йоги', 'Дана')],
+  ideas: [idea('x1', 'Приложение для барберов', 'запись и касса', 'work'), idea('x2', 'Курс по продажам')],
 };
 
 describe('buildSearch', () => {
@@ -87,6 +91,37 @@ describe('buildSearch', () => {
     expect(buildSearch('ремонт', data)[0].hits[0].id).toBe('b1');
     // закрытый долг показывает «закрыт» вместо остатка
     expect(buildSearch('марат', data)[0].hits[0].subtitle).toBe('Я должен · закрыт');
+  });
+
+  it('ищет сайты по названию, клиенту и заметке; подпись — клиент и этап', () => {
+    const byTitle = buildSearch('кофейня', data)[0];
+    expect(byTitle.label).toBe('Сайты');
+    expect(byTitle.icon).toBe('sites');
+    expect(byTitle.hits[0]).toMatchObject({ id: 'w1', kind: 'site', title: 'Кофейня Brew', subtitle: 'Асхат · жду оплату', to: '/sites?site=w1' });
+    // «Асхат» есть и среди долгов: берём именно группу сайтов
+    expect(buildSearch('асхат', data).find(g => g.kind === 'site')?.hits[0].id).toBe('w1');
+    expect(buildSearch('лендинг', data)[0].hits[0].id).toBe('w1');
+    expect(buildSearch('йоги', data)[0].hits[0]).toMatchObject({ id: 'w2', subtitle: 'Дана' });
+  });
+
+  it('этап в подписи: у «в работе» его нет, а без клиента подписи может не быть вовсе', () => {
+    const at = (status: Site['status'], client?: string): SearchData => ({ ...data, sites: [site('w3', 'Клиентский', client, undefined, status)] });
+    const subtitle = (d: SearchData) => buildSearch('клиентский', d)[0].hits[0].subtitle;
+    expect(subtitle(at('done', 'Асхат'))).toBe('Асхат · реализован');
+    expect(subtitle(at('meeting', 'Асхат'))).toBe('Асхат · согласовать встречу');
+    expect(subtitle(at('work', 'Асхат'))).toBe('Асхат');
+    expect(subtitle(at('payment'))).toBe('жду оплату');
+    expect(subtitle(at('work'))).toBeUndefined();
+  });
+
+  it('ищет идеи по названию и заметке; подпись — этап', () => {
+    const found = buildSearch('барберов', data)[0];
+    expect(found.label).toBe('Идеи');
+    expect(found.icon).toBe('ideas');
+    expect(found.hits[0]).toMatchObject({ id: 'x1', kind: 'idea', title: 'Приложение для барберов', subtitle: 'в работе', to: '/ideas?idea=x1' });
+    expect(buildSearch('касса', data)[0].hits[0].id).toBe('x1');
+    // новая идея: этап по умолчанию, в подписи его нет
+    expect(buildSearch('продажам', data)[0].hits[0]).toMatchObject({ id: 'x2', subtitle: undefined });
   });
 
   it('режет группу до восьми строк, но помнит общее число', () => {

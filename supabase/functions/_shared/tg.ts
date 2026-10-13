@@ -28,4 +28,23 @@ export const edit = (chat_id: string, message_id: number, text: string, buttons?
 export const answer = (callback_query_id: string, text?: string) =>
   api('answerCallbackQuery', { callback_query_id, text });
 
+/** «Печатает…» в шапке чата: пока бот слушает и думает, человек видит, что запрос принят. */
+export const typing = (chat_id: string) => api('sendChatAction', { chat_id, action: 'typing' });
+
+/**
+ * Скачать файл Telegram по `file_id` (голосовое, аудио). Bot API отдаёт файлы до 20 МБ.
+ * Адрес содержит токен бота, поэтому его нигде не печатаем.
+ */
+export async function downloadFile(fileId: string): Promise<Blob | null> {
+  const info = await api('getFile', { file_id: fileId });
+  const path = (info.result as { file_path?: string } | undefined)?.file_path;
+  if (!info.ok || !path) return null;
+  const res = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${path}`, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) {
+    console.error(`telegram file download failed: ${res.status}`);
+    return null;
+  }
+  return await res.blob();
+}
+
 export { esc };

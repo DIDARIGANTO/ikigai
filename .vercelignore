@@ -1,0 +1,8 @@
+# Vercel CLI не читает .gitignore, поэтому лишнее исключаем здесь: в облако должен уходить только код сайта.
+.env
+.env.*
+.wt
+.claude
+dist
+coverage
+*.log

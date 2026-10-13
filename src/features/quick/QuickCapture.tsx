@@ -37,6 +37,7 @@ const TYPE_OPTIONS: SegmentOption<QuickType>[] = [
 const REPEATS: { key: Repeat; label: string }[] = [
   { key: 'none', label: 'Один раз' },
   { key: 'daily', label: 'Каждый день' },
+  { key: 'weekdays', label: 'По будням' },
   { key: 'weekly', label: 'Каждую неделю' },
   { key: 'monthly', label: 'Каждый месяц' },
   { key: 'yearly', label: 'Каждый год' },

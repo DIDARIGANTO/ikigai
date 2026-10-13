@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Select';
 import { StylePicker } from '@/components/ui/StylePicker';
 import { EffectsSwitch } from '@/components/ui/EffectsSwitch';
+import { Switch } from '@/components/ui/Switch';
 import { useToast } from '@/components/ui/Toast';
 import { cloudEnabled, getStore } from '@/data';
 import { exportAll, importAll, downloadText } from '@/data/exportImport';
@@ -371,7 +372,7 @@ function SectionNav({ entries }: { entries: NavEntry[] }) {
 const cloudClient = async () => (await import('@/data/supabase')).makeSupabaseClient();
 
 /** Записи, по которым видно, что в браузере остались несохранённые в облако данные. */
-const CONTENT_COLLECTIONS: CollectionName[] = ['tasks', 'goals', 'dreams', 'reminders', 'listItems', 'notes', 'debts'];
+const CONTENT_COLLECTIONS: CollectionName[] = ['tasks', 'goals', 'dreams', 'reminders', 'listItems', 'notes', 'debts', 'sites', 'ideas'];
 
 async function browserHasData(store: LocalStore): Promise<boolean> {
   for (const c of CONTENT_COLLECTIONS) {
@@ -498,13 +499,26 @@ function TelegramSection() {
   };
 
   return (
-    <Section id="settings-telegram" title="Telegram" description="Бот для быстрых записей и утренней сводки">
+    <Section id="settings-telegram" title="Telegram" description="Диктуй дела голосом или пиши — бот запишет их сюда и пришлёт утреннюю сводку">
       {connected ? (
-        <Row label="Подключено" hint="Бот разбирает сообщения и присылает утреннюю сводку">
-          <Button variant="danger-quiet" onClick={() => void onDisconnect()}>
-            Отключить
-          </Button>
-        </Row>
+        <>
+          <Row label="Подключено" hint="Диктуй голосовым сообщением или пиши: бот разложит дела и запишет их сюда сразу">
+            <Button variant="danger-quiet" onClick={() => void onDisconnect()}>
+              Отключить
+            </Button>
+          </Row>
+          <Row
+            inline
+            label="Подтверждать перед записью"
+            hint="Выключено: бот записывает сразу, под записью есть кнопка «Отменить». Включено: сначала показывает, что понял"
+          >
+            <Switch
+              checked={profile.telegramConfirm === true}
+              onChange={v => void update({ telegramConfirm: v })}
+              aria-label="Подтверждать перед записью"
+            />
+          </Row>
+        </>
       ) : (
         <Row label="Бот" hint="Одноразовая ссылка свяжет бота с этим аккаунтом">
           <Button disabled={busy} onClick={() => void onConnect()}>
@@ -697,8 +711,8 @@ export function SettingsPage() {
           {cloudEnabled ? (
             <TelegramSection />
           ) : (
-            <Section id="settings-telegram" title="Telegram" description="Бот для быстрых записей и утренней сводки">
-              <Row inline label="Бот" hint="Работает после подключения облака — инструкция в docs/SETUP.md">
+            <Section id="settings-telegram" title="Telegram" description="Диктуй дела голосом или пиши — бот запишет их сюда и пришлёт утреннюю сводку">
+              <Row inline label="Бот" hint="Нужно облако, чтобы записи из Telegram попадали сюда: инструкция в docs/SETUP.md, раздел 5">
                 <span className="text-small text-muted">Не подключён</span>
               </Row>
             </Section>

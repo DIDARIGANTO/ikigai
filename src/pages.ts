@@ -12,6 +12,8 @@ export const ListsPage = lazy(() => import('./features/lists/ListsPage').then(m 
 export const ListDetail = lazy(() => import('./features/lists/ListDetail').then(m => ({ default: m.ListDetail })));
 export const NotesPage = lazy(() => import('./features/notes/NotesPage').then(m => ({ default: m.NotesPage })));
 export const DebtsPage = lazy(() => import('./features/debts/DebtsPage').then(m => ({ default: m.DebtsPage })));
+export const IdeasPage = lazy(() => import('./features/ideas/IdeasPage').then(m => ({ default: m.IdeasPage })));
+export const SitesPage = lazy(() => import('./features/sites/SitesPage').then(m => ({ default: m.SitesPage })));
 export const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
 export const InboxPage = lazy(() => import('./features/inbox/InboxPage').then(m => ({ default: m.InboxPage })));
 export const LifePage = lazy(() => import('./features/life/LifePage').then(m => ({ default: m.LifePage })));

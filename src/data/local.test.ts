@@ -57,8 +57,8 @@ describe('LocalStore schema upgrade v1 → v2', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(3);
-    expect(reopened.tables.map(t => t.name).sort()).toEqual(expect.arrayContaining(['dailyLogs', 'debts']));
+    expect(reopened.verno).toBe(5);
+    expect(reopened.tables.map(t => t.name).sort()).toEqual(expect.arrayContaining(['dailyLogs', 'debts', 'sites', 'ideas']));
     reopened.close();
   });
 });
@@ -94,8 +94,72 @@ describe('LocalStore schema upgrade v2 → v3', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(3);
+    expect(reopened.verno).toBe(5);
     expect(reopened.tables.map(t => t.name)).toContain('debts');
+    reopened.close();
+  });
+});
+
+describe('LocalStore schema upgrade v3 → v4', () => {
+  it('keeps v3 data (debts) and adds the sites store', async () => {
+    const { default: Dexie } = await import('dexie');
+    const { V1_COLLECTIONS, V2_COLLECTIONS, V3_COLLECTIONS } = await import('./local');
+    const name = 'upgrade-v3-' + Math.random();
+    // База третьей версии (с долгами, но без сайтов), как её создавала прошлая сборка.
+    const old = new Dexie(name);
+    const stores = (list: string[]) => Object.fromEntries(list.map(c => [c, 'id']));
+    old.version(1).stores(stores(V1_COLLECTIONS));
+    old.version(2).stores(stores(V2_COLLECTIONS));
+    old.version(3).stores(stores(V3_COLLECTIONS));
+    await old.table('debts').put({
+      id: 'db1', direction: 'iOwe', person: 'Марат', amount: 12000, currency: 'KZT', date: '2026-10-02', payments: [],
+      createdAt: '2026-10-02T00:00:00.000Z', updatedAt: '2026-10-02T00:00:00.000Z',
+    });
+    old.close();
+
+    const store = new LocalStore(name);
+    expect((await store.list('debts'))[0].person).toBe('Марат');
+    expect(await store.list('sites')).toEqual([]);
+    await store.put('sites', {
+      id: 's1', title: 'S.A.T Group', createdAt: '2026-10-08T00:00:00.000Z', updatedAt: '2026-10-08T00:00:00.000Z',
+    });
+    expect((await store.list('sites'))[0].title).toBe('S.A.T Group');
+    expect(store.status()).toBe('ok');
+
+    const reopened = new Dexie(name);
+    await reopened.open();
+    expect(reopened.verno).toBe(5);
+    expect(reopened.tables.map(t => t.name)).toContain('sites');
+    reopened.close();
+  });
+});
+
+describe('LocalStore schema upgrade v4 → v5', () => {
+  it('keeps v4 data (sites) and adds the ideas store', async () => {
+    const { default: Dexie } = await import('dexie');
+    const { V1_COLLECTIONS, V2_COLLECTIONS, V3_COLLECTIONS, V4_COLLECTIONS } = await import('./local');
+    const name = 'upgrade-v4-' + Math.random();
+    // База четвёртой версии (с сайтами, но без идей), как её создавала прошлая сборка.
+    const old = new Dexie(name);
+    const stores = (list: string[]) => Object.fromEntries(list.map(c => [c, 'id']));
+    old.version(1).stores(stores(V1_COLLECTIONS));
+    old.version(2).stores(stores(V2_COLLECTIONS));
+    old.version(3).stores(stores(V3_COLLECTIONS));
+    old.version(4).stores(stores(V4_COLLECTIONS));
+    await old.table('sites').put({ id: 's1', title: 'Кофейня Brew', createdAt: '2026-10-08T00:00:00.000Z', updatedAt: '2026-10-08T00:00:00.000Z' });
+    old.close();
+
+    const store = new LocalStore(name);
+    expect((await store.list('sites'))[0].title).toBe('Кофейня Brew');
+    expect(await store.list('ideas')).toEqual([]);
+    await store.put('ideas', { id: 'i1', title: 'Приложение для барберов', source: 'web', createdAt: '2026-10-13T00:00:00.000Z', updatedAt: '2026-10-13T00:00:00.000Z' });
+    expect((await store.list('ideas'))[0].title).toBe('Приложение для барберов');
+    expect(store.status()).toBe('ok');
+
+    const reopened = new Dexie(name);
+    await reopened.open();
+    expect(reopened.verno).toBe(5);
+    expect(reopened.tables.map(t => t.name)).toContain('ideas');
     reopened.close();
   });
 });

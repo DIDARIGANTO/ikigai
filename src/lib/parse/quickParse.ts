@@ -94,6 +94,7 @@ const MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
 const REPEAT_LABEL: Record<Repeat, string> = {
   none: 'Один раз',
   daily: 'Каждый день',
+  weekdays: 'По будням',
   weekly: 'Каждую неделю',
   monthly: 'Каждый месяц',
   yearly: 'Каждый год',
@@ -269,19 +270,20 @@ export function parseQuick(text: string, ctx: ParseContext): QuickParse {
   // «напомни (мне) (о|про) …» — напоминание.
   if (take(re(`${B}напомни(?:ть)?(?:\\s+мне)?(?:\\s+(?:об|о|про))?${E}`), 'kind', () => 'Напоминание')) out.kind = 'reminder';
 
-  // Повтор: «каждый месяц», «ежегодно», «каждый понедельник», «каждое утро».
+  // Повтор: «каждый месяц», «ежегодно», «каждый понедельник», «каждое утро», «по будням», «каждый рабочий день».
   let repeatWeekday = -1;
   let repeatTime: string | undefined;
   take(
     re(
-      `${B}(?:(ежедневно|еженедельно|ежемесячно|ежегодно)|кажд(?:ый|ую|ое)\\s+(день|неделю|месяц|год|утро|вечер|${WEEKDAY_SRC}))${E}`,
+      `${B}(?:(ежедневно|еженедельно|ежемесячно|ежегодно)|(по\\s+(?:будням|будним\\s+дням|рабочим\\s+дням)|в\\s+(?:будни|будние\\s+дни|рабочие\\s+дни)|кажд(?:ый|ую|ое)\\s+(?:будний|рабочий)\\s+день)|кажд(?:ый|ую|ое)\\s+(день|неделю|месяц|год|утро|вечер|${WEEKDAY_SRC}))${E}`,
     ),
     'repeat',
     m => {
       const adverb = m[1];
-      const unit = m[2];
+      const unit = m[3];
       let repeat: Repeat;
-      if (adverb) repeat = ({ ежедневно: 'daily', еженедельно: 'weekly', ежемесячно: 'monthly', ежегодно: 'yearly' } as const)[adverb as 'ежедневно'];
+      if (m[2]) repeat = 'weekdays';
+      else if (adverb) repeat = ({ ежедневно: 'daily', еженедельно: 'weekly', ежемесячно: 'monthly', ежегодно: 'yearly' } as const)[adverb as 'ежедневно'];
       else if (unit === 'день') repeat = 'daily';
       else if (unit === 'неделю') repeat = 'weekly';
       else if (unit === 'месяц') repeat = 'monthly';

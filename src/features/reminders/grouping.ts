@@ -20,6 +20,7 @@ export interface ReminderGroups {
 export const REPEAT_LABEL: Record<Repeat, string> = {
   none: 'разово',
   daily: 'каждый день',
+  weekdays: 'по будням',
   weekly: 'каждую неделю',
   monthly: 'каждый месяц',
   yearly: 'каждый год',
@@ -28,6 +29,7 @@ export const REPEAT_LABEL: Record<Repeat, string> = {
 export const REPEAT_OPTIONS: { value: Repeat; label: string }[] = [
   { value: 'none', label: 'Без повтора' },
   { value: 'daily', label: 'Каждый день' },
+  { value: 'weekdays', label: 'По будням' },
   { value: 'weekly', label: 'Каждую неделю' },
   { value: 'monthly', label: 'Каждый месяц' },
   { value: 'yearly', label: 'Каждый год' },
@@ -92,13 +94,13 @@ export function groupReminders(reminders: Reminder[], fromISO: string): Reminder
 }
 
 /**
- * «Скоро»: ближайшие даты для верхних плиток. Ежедневные не берём — это распорядок, а не дата,
+ * «Скоро»: ближайшие даты для верхних плиток. Ежедневные и «по будням» не берём — это распорядок, а не дата,
  * иначе они всегда занимали бы все места. Порядок: ближе раньше, затем по времени.
  */
 export function soonest(reminders: Reminder[], fromISO: string, limit = 3): ReminderEntry[] {
   const out: ReminderEntry[] = [];
   for (const reminder of reminders) {
-    if (reminder.repeat === 'daily') continue;
+    if (reminder.repeat === 'daily' || reminder.repeat === 'weekdays') continue;
     const next = nextOccurrence(reminder, fromISO);
     const days = daysUntil(reminder, fromISO);
     if (next === null || days === null) continue;

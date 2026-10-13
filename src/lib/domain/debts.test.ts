@@ -7,10 +7,15 @@ import {
   dueOf,
   forgive,
   isClosed,
+  isReturned,
   leftOf,
+  openDebtsFor,
   paidOf,
   paidRatio,
+  recordReturn,
+  RETURNED_LABEL,
   removePayment,
+  returnsOf,
   reopen,
   settle,
   sortClosed,
@@ -118,7 +123,7 @@ describe('ordering and splitting', () => {
     expect(sortClosed([old, paid, forgiven]).map(x => x.id)).toEqual(['f', 'p', 'o']);
   });
 
-  it('splitDebts puts open ones under their direction and closed ones aside', () => {
+  it('splitDebts puts open ones under their direction; written-off ones are «closed», fully returned ones live in the returns journal', () => {
     const s = splitDebts([
       debt({ id: 'a' }),
       debt({ id: 'b', direction: 'iOwe' }),
@@ -127,7 +132,122 @@ describe('ordering and splitting', () => {
     ]);
     expect(s.open.owedToMe.map(x => x.id)).toEqual(['a']);
     expect(s.open.iOwe.map(x => x.id)).toEqual(['b']);
-    expect(s.closed.map(x => x.id).sort()).toEqual(['c', 'd']);
+    expect(s.closed.map(x => x.id)).toEqual(['c']);
+  });
+
+  it('a manual close after a partial return is written off, not «returned»', () => {
+    const partial = debt({ id: 'p', payments: [{ id: 'w', date: '2026-10-11', amount: 10000 }], closedAt: '2026-10-12T00:00:00.000Z' });
+    expect(isReturned(partial)).toBe(false);
+    expect(splitDebts([partial]).closed.map(x => x.id)).toEqual(['p']);
+    expect(isReturned(debt({ payments: [{ id: 'w', date: '2026-10-11', amount: 50000 }] }))).toBe(true);
+    expect(isReturned(debt())).toBe(false);
+  });
+
+  it('says who returned to whom', () => {
+    expect(RETURNED_LABEL).toEqual({ owedToMe: 'мне вернули', iOwe: 'я вернул' });
+  });
+});
+
+describe('returnsOf — журнал возвратов', () => {
+  it('collects every return of every debt, newest first, with what is still left on that debt', () => {
+    const a = debt({ id: 'a', person: 'Асхат', payments: [{ id: 'a1', date: '2026-10-02', amount: 20000 }, { id: 'a2', date: '2026-10-09', amount: 10000 }] });
+    const b = debt({ id: 'b', person: 'Марат', direction: 'iOwe', amount: 5000, payments: [{ id: 'b1', date: '2026-10-05', amount: 5000 }] });
+    const c = debt({ id: 'c', person: 'Айгуль' });
+    const out = returnsOf([a, b, c]);
+    expect(out.map(r => `${r.debt.id}/${r.payment.id}`)).toEqual(['a/a2', 'b/b1', 'a/a1']);
+    expect(out.map(r => r.left)).toEqual([20000, 0, 20000]);
+  });
+
+  it('on the same day the later return goes first', () => {
+    const a = debt({ payments: [{ id: 'x1', date: '2026-10-09', amount: 1000 }, { id: 'x2', date: '2026-10-09', amount: 2000 }] });
+    expect(returnsOf([a]).map(r => r.payment.id)).toEqual(['x2', 'x1']);
+  });
+});
+
+describe('openDebtsFor', () => {
+  it('finds open debts of the same person and direction, ignoring case and extra spaces, oldest first', () => {
+    const list = [
+      debt({ id: 'new', person: 'Асхат', date: '2026-10-05' }),
+      debt({ id: 'old', person: 'асхат ', date: '2026-09-01' }),
+      debt({ id: 'closed', person: 'Асхат', closedAt: '2026-10-02T00:00:00.000Z' }),
+      debt({ id: 'other-way', person: 'Асхат', direction: 'iOwe' }),
+      debt({ id: 'other-person', person: 'Марат' }),
+    ];
+    expect(openDebtsFor(list, 'owedToMe', '  АСХАТ').map(d => d.id)).toEqual(['old', 'new']);
+    expect(openDebtsFor(list, 'owedToMe', '')).toEqual([]);
+  });
+});
+
+describe('recordReturn — «вернули долг»', () => {
+  const NOW = '2026-10-10T08:00:00.000Z';
+  const counter = () => {
+    let n = 0;
+    return () => `id${++n}`;
+  };
+  const input = (over: Partial<Parameters<typeof recordReturn>[1]> = {}) => ({
+    direction: 'owedToMe' as const, person: 'Асхат', amount: 50000, currency: 'KZT', date: '2026-10-09', ...over,
+  });
+
+  it('no open debt: records a debt that is already returned', () => {
+    const r = recordReturn([], input({ person: ' Марат ', amount: 12000 }), counter(), NOW);
+    expect(r.updated).toEqual([]);
+    expect(r.created).toHaveLength(1);
+    expect(r.created[0]).toMatchObject({
+      direction: 'owedToMe', person: 'Марат', amount: 12000, currency: 'KZT', date: '2026-10-09', createdAt: NOW, updatedAt: NOW,
+      payments: [{ date: '2026-10-09', amount: 12000 }],
+    });
+    expect(isReturned(r.created[0])).toBe(true);
+  });
+
+  it('an open debt of that person takes a partial return and stays open', () => {
+    const open = debt({ id: 'a' });
+    const r = recordReturn([open], input({ amount: 20000 }), counter(), NOW);
+    expect(r.created).toEqual([]);
+    expect(r.updated).toHaveLength(1);
+    expect(r.updated[0].before).toBe(open);
+    expect(leftOf(r.updated[0].after)).toBe(30000);
+    expect(isClosed(r.updated[0].after)).toBe(false);
+    expect(r.updated[0].after.payments).toEqual([{ id: 'id1', date: '2026-10-09', amount: 20000 }]);
+  });
+
+  it('the full amount closes the debt', () => {
+    const r = recordReturn([debt({ id: 'a' })], input(), counter(), NOW);
+    expect(isReturned(r.updated[0].after)).toBe(true);
+    expect(r.created).toEqual([]);
+  });
+
+  it('a return bigger than one debt goes on to the next open debt of the same person, oldest first', () => {
+    const first = debt({ id: 'first', amount: 50000, date: '2026-09-01' });
+    const second = debt({ id: 'second', amount: 30000, date: '2026-09-20' });
+    const r = recordReturn([second, first], input({ amount: 70000 }), counter(), NOW);
+    expect(r.updated.map(u => u.after.id)).toEqual(['first', 'second']);
+    expect(leftOf(r.updated[0].after)).toBe(0);
+    expect(leftOf(r.updated[1].after)).toBe(10000);
+    expect(r.created).toEqual([]);
+  });
+
+  it('what is more than all open debts becomes a returned record of its own', () => {
+    const r = recordReturn([debt({ id: 'a', amount: 10000 })], input({ amount: 15000 }), counter(), NOW);
+    expect(isReturned(r.updated[0].after)).toBe(true);
+    expect(r.created).toHaveLength(1);
+    expect(r.created[0]).toMatchObject({ person: 'Асхат', amount: 5000, payments: [{ amount: 5000 }] });
+  });
+
+  it('does not touch closed debts, other people or the other direction', () => {
+    const list = [
+      debt({ id: 'closed', closedAt: '2026-10-02T00:00:00.000Z' }),
+      debt({ id: 'other', person: 'Марат' }),
+      debt({ id: 'way', direction: 'iOwe' }),
+    ];
+    const r = recordReturn(list, input({ amount: 1000 }), counter(), NOW);
+    expect(r.updated).toEqual([]);
+    expect(r.created).toHaveLength(1);
+  });
+
+  it('takes the currency of the debt it is applied to', () => {
+    const r = recordReturn([debt({ id: 'usd', currency: 'USD', amount: 100 })], input({ amount: 40, currency: 'KZT' }), counter(), NOW);
+    expect(r.created).toEqual([]);
+    expect(leftOf(r.updated[0].after)).toBe(60);
   });
 });
 

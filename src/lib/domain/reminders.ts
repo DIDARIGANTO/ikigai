@@ -2,10 +2,14 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 import type { Reminder } from '@/lib/types';
 import { addDaysISO } from '@/lib/dates';
 
+/** Будни — понедельник…пятница (`Date.getDay()`: 0 — воскресенье, 6 — суббота). */
+const isWeekday = (day: number) => day >= 1 && day <= 5;
+
 export function reminderOccursOn(r: Reminder, dateISO: string): boolean {
   if (dateISO < r.date) return false;
   if (r.repeat === 'none') return r.date === dateISO;
   if (r.repeat === 'daily') return true;
+  if (r.repeat === 'weekdays') return isWeekday(parseISO(dateISO).getDay());
   const a = parseISO(r.date), b = parseISO(dateISO);
   if (r.repeat === 'weekly') return a.getDay() === b.getDay();
   if (r.repeat === 'monthly') return a.getDate() === b.getDate();

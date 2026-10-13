@@ -39,7 +39,7 @@ export const isRunning = (t: RunnableTask) => t.status === 'doing' && !!t.actual
 
 // ── напоминания ────────────────────────────────────────────────────────────
 
-export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
 export interface Reminder {
   id: string;
@@ -49,10 +49,14 @@ export interface Reminder {
   repeat: Repeat;
 }
 
+/** Будни — понедельник…пятница (`getUTCDay()`: 0 — воскресенье, 6 — суббота). */
+const isWeekday = (day: number) => day >= 1 && day <= 5;
+
 export function reminderOccursOn(r: Reminder, dateISO: string): boolean {
   if (dateISO < r.date) return false;
   if (r.repeat === 'none') return r.date === dateISO;
   if (r.repeat === 'daily') return true;
+  if (r.repeat === 'weekdays') return isWeekday(parseDateISO(dateISO).getUTCDay());
   const a = parseDateISO(r.date), b = parseDateISO(dateISO);
   if (r.repeat === 'weekly') return a.getUTCDay() === b.getUTCDay();
   if (r.repeat === 'monthly') return a.getUTCDate() === b.getUTCDate();
@@ -146,4 +150,23 @@ export function shouldSendMorning(now: Date, timeZone: string, morningTime: stri
   if (lastSentDate === date) return false;
   const diff = toMin(time) - toMin(morningTime);
   return diff >= 0 && diff <= 120;
+}
+
+/** Сколько минут после назначенного времени напоминание ещё присылается: хватает на пропущенный тик, но старое не поднимает. */
+export const DUE_GRACE_MINUTES = 15;
+
+/**
+ * Напоминания со временем, которые пора прислать прямо сейчас: сегодня они срабатывают, назначенная минута уже наступила
+ * (но прошло не больше `DUE_GRACE_MINUTES`), и в `sentIds` их ещё нет. Порядок — по времени.
+ * `now` — местные дата и время пользователя (см. `localClock`). Дела без времени сюда не попадают: они идут в утреннюю сводку.
+ */
+export function dueReminders<T extends Reminder>(reminders: T[], now: { date: string; time: string }, sentIds: ReadonlySet<string>): T[] {
+  const nowMin = toMin(now.time);
+  return reminders
+    .filter(r => {
+      if (!r.time || sentIds.has(r.id) || !reminderOccursOn(r, now.date)) return false;
+      const late = nowMin - toMin(r.time);
+      return late >= 0 && late <= DUE_GRACE_MINUTES;
+    })
+    .sort((a, b) => String(a.time).localeCompare(String(b.time)));
 }

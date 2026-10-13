@@ -1,9 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
-// Тик по расписанию (pg_cron раз в 5 минут): рассылает утреннюю сводку тем,
-// у кого в их часовом поясе уже наступило время сводки и сегодня она не уходила.
+// Тик по расписанию (pg_cron раз в минуту): присылает напоминания в назначенную минуту и рассылает утреннюю сводку
+// тем, у кого в их часовом поясе уже наступило время сводки и сегодня она не уходила.
 import { db, rows } from '../_shared/db.ts';
 import { send, esc, type Button } from '../_shared/tg.ts';
-import { buildMorningDigest, capDigest, shouldSendMorning, localClock, reminderOccursOn } from '../_shared/domain.ts';
+import { addDaysISO, buildMorningDigest, capDigest, shouldSendMorning, localClock, reminderOccursOn } from '../_shared/domain.ts';
+import { sendDueReminders } from '../_shared/alerts.ts';
 
 const SECRET = Deno.env.get('CRON_SECRET')!;
 const SITE = Deno.env.get('SITE_URL') ?? '';
@@ -15,16 +16,47 @@ const CARRIED_LIMIT = 10;
 /** Запас к лимиту Telegram в 4096 символов: текст ещё экранируется перед отправкой. */
 const DIGEST_LIMIT = 3900;
 
+/** Сколько дней хранить записи об отправленном в `sent_digests`: нужны только за сегодня, остальное — запас на разбор. */
+const KEEP_DAYS = 14;
+
+/** Напоминания со временем: присылаем в назначенную минуту, пока в `sent_digests` нет отметки, что оно ушло. */
+async function alertDueReminders(userId: string, chatId: string, tz: string, now: Date): Promise<number> {
+  const reminders = await rows<any>(userId, 'reminders');
+  // Тик идёт раз в минуту, поэтому когда времени ни у одного дела нет, вторую таблицу даже не трогаем.
+  if (!reminders.some((r: any) => r.time)) return 0;
+  const clock = localClock(now, tz);
+  const { data: marks } = await db.from('sent_digests').select('kind,attempts,sent')
+    .eq('user_id', userId).eq('date', clock.date).like('kind', 'rem:%');
+  const progress = new Map<string, { attempts: number; sent: boolean }>(
+    (marks ?? []).map((m: any) => [String(m.kind).slice(4), { attempts: Number(m.attempts ?? 0), sent: m.sent === true }]),
+  );
+  return await sendDueReminders({ reminders, now: clock, progress }, {
+    send: text => send(chatId, text),
+    record: async (id, attempts, sent) => {
+      const { error } = await db.from('sent_digests').upsert({ user_id: userId, kind: `rem:${id}`, date: clock.date, attempts, sent });
+      if (error) console.error(error);
+    },
+    onError: e => console.error(e),
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.headers.get('x-cron-secret') !== SECRET) return new Response('forbidden', { status: 403 });
   const now = new Date();
   const { data: profiles } = await db.from('rows').select('user_id,data')
     .eq('collection', 'profiles').not('data->>telegramChatId', 'is', null);
   let sent = 0;
+  let alerts = 0;
   for (const p of profiles ?? []) {
     const userId = p.user_id as string, profile = p.data as any;
     const tz = (profile.timezone as string | undefined) ?? 'Asia/Almaty';
     const { date: today } = localClock(now, tz);
+    // Напоминания по времени не зависят от утренней сводки: ниже сводка может пропустить тик, а они — нет.
+    try {
+      alerts += await alertDueReminders(userId, profile.telegramChatId as string, tz, now);
+    } catch (e) {
+      console.error(e);
+    }
     // Защита от дублей: попытки за сегодня записаны в sent_digests.
     const { data: rec } = await db.from('sent_digests').select('*')
       .eq('user_id', userId).eq('kind', 'morning').eq('date', today).maybeSingle();
@@ -65,10 +97,12 @@ Deno.serve(async (req: Request) => {
       if (!res.ok) throw new Error(JSON.stringify(res));
       await db.from('sent_digests').upsert({ user_id: userId, kind: 'morning', date: today, attempts: (rec?.attempts ?? 0) + 1, sent: true });
       sent++;
+      // Раз в день заодно убираем старые отметки, чтобы таблица не росла вечно.
+      await db.from('sent_digests').delete().eq('user_id', userId).lt('date', addDaysISO(today, -KEEP_DAYS));
     } catch (e) {
       console.error(e);
       await db.from('sent_digests').upsert({ user_id: userId, kind: 'morning', date: today, attempts: (rec?.attempts ?? 0) + 1, sent: false });
     }
   }
-  return Response.json({ sent });
+  return Response.json({ sent, alerts });
 });

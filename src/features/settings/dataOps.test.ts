@@ -35,6 +35,22 @@ describe('removeDemoData', () => {
     expect((await store.list('debts')).map(x => x.person)).toEqual(['Асхат']);
   });
 
+  it('не трогает сайты: это настоящие записи, в демо их нет', async () => {
+    await store.put('sites', {
+      id: 's1', title: 'S.A.T Group', createdAt: '2026-10-08T00:00:00.000Z', updatedAt: '2026-10-08T00:00:00.000Z',
+    });
+    await removeDemoData(store);
+    expect((await store.list('sites')).map(x => x.title)).toEqual(['S.A.T Group']);
+  });
+
+  it('не трогает идеи: это настоящие записи, в демо их нет', async () => {
+    await store.put('ideas', {
+      id: 'i1', title: 'Приложение для барберов', source: 'web', createdAt: '2026-10-13T00:00:00.000Z', updatedAt: '2026-10-13T00:00:00.000Z',
+    });
+    await removeDemoData(store);
+    expect((await store.list('ideas')).map(x => x.title)).toEqual(['Приложение для барберов']);
+  });
+
   it('снимает demoLoaded и ссылку на цель недели', async () => {
     expect((await store.list('profiles'))[0].demoLoaded).toBe(true);
     await removeDemoData(store);

@@ -33,6 +33,8 @@ const GO: { key: SectionKey; label: string; to: string; keywords: string[]; sugg
   { key: 'lists', label: 'Списки', to: '/lists', keywords: ['lists', 'покупки', 'купить'] },
   { key: 'notes', label: 'Блокнот', to: '/notes', keywords: ['notes', 'заметки'] },
   { key: 'debts', label: 'Долги', to: '/debts', keywords: ['debts', 'долг', 'должен', 'должны', 'займ', 'одолжил'] },
+  { key: 'ideas', label: 'Идеи', to: '/ideas', keywords: ['ideas', 'идея', 'мысль', 'придумал', 'озарение'] },
+  { key: 'sites', label: 'Сайты', to: '/sites', keywords: ['sites', 'сайт', 'клиент', 'оплата', 'встреча', 'заказ'] },
   { key: 'inbox', label: 'Входящие', to: '/inbox', keywords: ['inbox', 'разобрать'] },
   { key: 'life', label: 'Моя жизнь', to: '/life', keywords: ['life', 'сферы', 'баланс'] },
   { key: 'settings', label: 'Настройки', to: '/settings', keywords: ['settings', 'параметры'] },

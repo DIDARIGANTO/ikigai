@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Reminder, Repeat } from '@/lib/types';
-import { daysWord, groupReminders, relativeDays, shortDays } from './grouping';
+import { REPEAT_LABEL, REPEAT_OPTIONS, daysWord, groupReminders, relativeDays, shortDays, soonest } from './grouping';
 
 const mk = (text: string, date: string, repeat: Repeat = 'none'): Reminder => ({
   id: text,
@@ -66,5 +66,17 @@ describe('shortDays — короткий отсчёт', () => {
     expect(shortDays(-2)).toBe('сегодня');
     expect(shortDays(1)).toBe('завтра');
     expect(shortDays(12)).toBe('через 12 дн.');
+  });
+});
+
+describe('повтор «по будням»', () => {
+  it('есть в подписях и в выпадающем списке', () => {
+    expect(REPEAT_LABEL.weekdays).toBe('по будням');
+    expect(REPEAT_OPTIONS.find(o => o.value === 'weekdays')?.label).toBe('По будням');
+  });
+
+  it('это распорядок, а не дата: в «Скоро» не попадает, как и ежедневные', () => {
+    const list = [mk('каждый день', TODAY, 'daily'), mk('по будням', TODAY, 'weekdays'), mk('разовое', '2026-09-20')];
+    expect(soonest(list, TODAY).map(e => e.reminder.text)).toEqual(['разовое']);
   });
 });

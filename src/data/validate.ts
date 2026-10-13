@@ -108,6 +108,7 @@ const SPECS: Record<CollectionName, Spec> = {
     morningTime: reqTime('09:00'),
     currency,
     telegramChatId: optText,
+    telegramConfirm: optBool,
     weekGoalId: optRef,
     demoLoaded: optBool,
   },
@@ -162,7 +163,7 @@ const SPECS: Record<CollectionName, Spec> = {
     text: text(),
     date: reqDate,
     time: optTime,
-    repeat: oneOf(['none', 'daily', 'weekly', 'monthly', 'yearly'], 'none'),
+    repeat: oneOf(['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], 'none'),
   },
   lists: { title: text(), icon: text('list'), position: num(), pinned: bool(), emoji: optText },
   listItems: {
@@ -197,6 +198,22 @@ const SPECS: Record<CollectionName, Spec> = {
     note: optText,
     payments,
     closedAt: optInstant,
+  },
+  ideas: {
+    title: text(),
+    note: optText,
+    // Нет статуса — новая: идеи из бота и из файла импорта могут приходить без него.
+    status: v => (v === undefined || v === 'new' || v === 'work' || v === 'done' ? OK : REMOVE),
+    source: oneOf(SOURCE, 'web'),
+  },
+  sites: {
+    title: text(),
+    note: optText,
+    // Нет статуса — «в работе»: сайты, записанные до появления вкладок, остаются как есть.
+    status: v => (v === undefined || v === 'meeting' || v === 'work' || v === 'payment' || v === 'done' ? OK : REMOVE),
+    client: optText,
+    price: optNonNeg,
+    doneAt: optDate,
   },
 };
 
