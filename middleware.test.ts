@@ -47,6 +47,20 @@ describe('middleware (the Vercel entry point)', () => {
     expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 
+  it('imports its own files with .js, never .ts: Vercel compiles TypeScript to .js but keeps the path as written', () => {
+    const shipped = ['middleware.ts', 'gate/gate.ts', 'gate/pages.ts'];
+    for (const file of shipped) {
+      const source = readFileSync(new URL(`./${file}`, import.meta.url), 'utf8');
+      const relative = [...source.matchAll(/from\s+['"](\.{1,2}\/[^'"]+)['"]/g)].map(m => m[1]);
+      for (const path of relative) expect(path, `${file} imports ${path}`).toMatch(/\.js$/);
+    }
+  });
+
+  it('asks for the Node.js runtime explicitly (Vercel warns that the default edge runtime is deprecated)', () => {
+    const source = readFileSync(new URL('./middleware.ts', import.meta.url), 'utf8');
+    expect(source).toMatch(/export const config = \{ runtime: 'nodejs' \}/);
+  });
+
   it('reads the very variable names that scripts/site-password.sh writes to Vercel', () => {
     const script = readFileSync(new URL('./scripts/site-password.sh', import.meta.url), 'utf8');
     expect(script).toContain('SITE_PASSWORD');

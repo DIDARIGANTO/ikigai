@@ -9,7 +9,8 @@
 // Пароль приходит заголовком Authorization (Basic): Routing Middleware на Vercel не получает тело запроса
 // (проверено в vercel dev: тело приходит пустым), а заголовки получает.
 
-import { PAGE_CSP, loginPage, notConfiguredPage } from './pages.ts';
+// Путь с .js: Vercel собирает TypeScript в .js и оставляет импорты как написаны (подробнее в ../middleware.ts).
+import { PAGE_CSP, loginPage, notConfiguredPage } from './pages.js';
 
 export const LOGIN_PATH = '/__gate';
 export const COOKIE_NAME = '__Host-ikigai-gate';
