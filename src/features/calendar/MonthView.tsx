@@ -205,7 +205,7 @@ function DayCell({
         if ((e.target as HTMLElement).closest('button, a')) return;
         onMore(iso, boxRef);
       }}
-      className={`group relative min-h-28 cursor-pointer lg:min-h-32 ${background} ${hot ? 'ring-2 ring-inset ring-accent' : ''}`}
+      className={`group relative min-h-28 cursor-pointer lg:min-h-32 ${background} ${hot ? 'ring-2 ring-inset ring-accent' : 'hover:bg-fill'}`}
     >
       <div className="flex h-full flex-col gap-1 p-1.5">
         <div className="flex items-center gap-1.5">

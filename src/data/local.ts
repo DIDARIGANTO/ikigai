@@ -20,6 +20,9 @@ export const V3_COLLECTIONS: CollectionName[] = [...V2_COLLECTIONS, 'debts'];
 /** Коллекции четвёртой версии: третья + «Сайты». */
 export const V4_COLLECTIONS: CollectionName[] = [...V3_COLLECTIONS, 'sites'];
 
+/** Коллекции пятой версии: четвёртая + «Идеи». */
+export const V5_COLLECTIONS: CollectionName[] = [...V4_COLLECTIONS, 'ideas'];
+
 /** Свои `indexedDB`/`IDBKeyRange` — для тестов, где нужна сломанная база. */
 type DexieDeps = { indexedDB?: IDBFactory; IDBKeyRange?: typeof IDBKeyRange };
 
@@ -43,9 +46,13 @@ class IkigaiDB extends Dexie {
     for (const c of V4_COLLECTIONS) v4[c] = 'id';
     this.version(4).stores(v4);
     // v5 — добавлены «Идеи» (`ideas`).
+    const v5: Record<string, string> = {};
+    for (const c of V5_COLLECTIONS) v5[c] = 'id';
+    this.version(5).stores(v5);
+    // v6 — добавлены «Правила жизни» (`rules`).
     const all: Record<string, string> = {};
     for (const c of COLLECTIONS) all[c] = 'id';
-    this.version(5).stores(all);
+    this.version(6).stores(all);
   }
   typedTable<K extends CollectionName>(name: K): Table<Row<K>, string> {
     return this.table(name) as Table<Row<K>, string>;

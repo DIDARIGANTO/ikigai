@@ -140,7 +140,7 @@ export function GoalsPage() {
 
   const header = (
     <PageHeader
-      title="Цели"
+      title="100 целей"
       icon={<SectionIcon k="goals" size={20} />}
       tone="indigo"
       description="Мечта со сроком и шагами: от нескольких лет до недели"

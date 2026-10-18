@@ -1,31 +1,37 @@
 import { useState } from 'react';
-import type { Debt, DebtPayment } from '@/lib/types';
+import type { DebtPayment } from '@/lib/types';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
-import { leftOf } from '@/lib/domain/debts';
 import { todayISO } from '@/lib/dates';
 import { newId } from '@/lib/ids';
 import { parsePrice } from '@/features/lists/money';
 import { formatDebtAmount } from './money';
 
 /**
- * Возврат части долга. Сумма по умолчанию — весь остаток; больше остатка записать нельзя:
- * лишнее было бы уже не возвратом, а новым долгом в другую сторону.
+ * Платёж или возврат на сумму. Сумма по умолчанию — весь остаток; больше остатка записать нельзя:
+ * лишнее было бы уже не возвратом, а новым долгом в другую сторону. Если остаток неизвестен (`left: null`,
+ * например у сайта нет суммы сделки), предела нет и сумму вводят сами.
+ * Одно окно на долги («Возврат») и на сайты («Платёж»).
  */
 export function PaymentDialog({
-  debt,
+  title,
+  who,
+  left,
+  currency,
   onSave,
   onClose,
 }: {
-  debt: Debt;
+  title: string;
+  who: string;
+  left: number | null;
+  currency: string;
   onSave: (payment: DebtPayment) => Promise<void> | void;
   onClose: () => void;
 }) {
   const toast = useToast();
-  const left = leftOf(debt);
-  const [amount, setAmount] = useState(String(left));
+  const [amount, setAmount] = useState(left === null ? '' : String(left));
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState('');
 
@@ -35,8 +41,8 @@ export function PaymentDialog({
       toast('Сумма не распознана', { kind: 'error' });
       return;
     }
-    if (parsed > left + 0.004) {
-      toast(`Больше остатка: осталось ${formatDebtAmount(left, debt.currency)}`, { kind: 'error' });
+    if (left !== null && parsed > left + 0.004) {
+      toast(`Больше остатка: осталось ${formatDebtAmount(left, currency)}`, { kind: 'error' });
       return;
     }
     if (!date) return;
@@ -48,7 +54,7 @@ export function PaymentDialog({
     <Modal
       open
       onClose={onClose}
-      title="Возврат"
+      title={title}
       footer={
         <div className="flex w-full items-center gap-2">
           <Button variant="ghost" onClick={onClose} className="ml-auto">
@@ -68,11 +74,16 @@ export function PaymentDialog({
         }}
       >
         <p className="text-body text-muted-strong">
-          {debt.person}: осталось <span className="font-mono tabular-nums text-text">{formatDebtAmount(left, debt.currency)}</span>
+          {who}
+          {left !== null ? (
+            <>
+              : осталось <span className="font-mono tabular-nums text-text">{formatDebtAmount(left, currency)}</span>
+            </>
+          ) : null}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label={`Сумма, ${debt.currency}`}
+            label={`Сумма, ${currency}`}
             autoFocus
             inputMode="decimal"
             value={amount}

@@ -227,6 +227,109 @@ describe('SitesPage', () => {
     expect(await store.list('sites')).toHaveLength(0);
   });
 
+  describe('платежи и остаток', () => {
+    const paid = (id: string, amount: number, date = '2026-10-05') => ({ id, date, amount });
+    const payBtn = (title: string) => screen.findByRole('button', { name: `Записать платёж: ${title}` });
+
+    it('shows what is left as the main number and how much is paid of the whole amount', async () => {
+      await store.put('sites', site({ price: 200000, payments: [paid('a', 50000)] }));
+      renderPage();
+      const line = await row('Кофейня Brew');
+      expect(line).toHaveTextContent(/осталось\s*150\s000\s₸/);
+      expect(line).toHaveTextContent(/оплачено 50\s000\s₸\sиз\s200\s000\s₸/);
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+    });
+
+    it('a site with an amount and no payments shows the amount; a fully paid one says so', async () => {
+      await store.putMany('sites', [
+        site({ id: 'a', title: 'Без платежей', price: 200000 }),
+        site({ id: 'b', title: 'Оплачен', price: 100000, payments: [paid('p', 100000)] }),
+      ]);
+      renderPage();
+      expect(await row('Без платежей')).toHaveTextContent(/200\s000\s₸/);
+      expect(await row('Без платежей')).not.toHaveTextContent('осталось');
+      expect(await row('Оплачен')).toHaveTextContent('оплачено полностью');
+      // у оплаченного кнопки «Платёж» нет
+      expect(screen.queryByRole('button', { name: 'Записать платёж: Оплачен' })).not.toBeInTheDocument();
+    });
+
+    it('«Платёж» on a row records a payment with today\'s date; the default sum is the rest', async () => {
+      await store.put('sites', site({ price: 200000, payments: [paid('a', 50000)] }));
+      renderPage();
+      fireEvent.click(await payBtn('Кофейня Брю'.replace('Брю', 'Brew')));
+      expect(await screen.findByRole('dialog', { name: 'Платёж' })).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Сумма/)).toHaveValue('150000');
+      type(/^Сумма/, '70 000');
+      fireEvent.click(screen.getByRole('button', { name: 'Записать' }));
+      await waitFor(async () => expect((await store.list('sites'))[0].payments).toHaveLength(2));
+      const [, second] = (await store.list('sites'))[0].payments ?? [];
+      expect(second).toMatchObject({ amount: 70000, date: todayISO() });
+      expect(await row('Кофейня Brew')).toHaveTextContent(/осталось\s*80\s000\s₸/);
+    });
+
+    it('the last payment closes the account: «оплачено полностью», no more «Платёж»', async () => {
+      await store.put('sites', site({ price: 200000, payments: [paid('a', 50000)] }));
+      renderPage();
+      fireEvent.click(await payBtn('Кофейня Brew'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Записать' }));
+      await waitFor(async () => expect((await store.list('sites'))[0].payments).toHaveLength(2));
+      expect(await row('Кофейня Brew')).toHaveTextContent('оплачено полностью');
+      expect(screen.queryByRole('button', { name: 'Записать платёж: Кофейня Brew' })).not.toBeInTheDocument();
+    });
+
+    it('does not accept a payment bigger than the rest, nor an unreadable sum', async () => {
+      await store.put('sites', site({ price: 100000 }));
+      renderPage();
+      fireEvent.click(await payBtn('Кофейня Brew'));
+      type(/^Сумма/, '150000');
+      fireEvent.click(await screen.findByRole('button', { name: 'Записать' }));
+      expect(await screen.findByText(/Больше остатка/)).toBeInTheDocument();
+      type(/^Сумма/, 'много');
+      fireEvent.click(screen.getByRole('button', { name: 'Записать' }));
+      expect(await screen.findByText('Сумма не распознана')).toBeInTheDocument();
+      expect((await store.list('sites'))[0].payments ?? []).toEqual([]);
+    });
+
+    it('a site without an amount takes payments with no limit and shows how much came in', async () => {
+      await store.put('sites', site());
+      renderPage();
+      fireEvent.click(await payBtn('Кофейня Brew'));
+      expect(screen.getByLabelText(/^Сумма/)).toHaveValue('');
+      type(/^Сумма/, '30 000');
+      fireEvent.click(screen.getByRole('button', { name: 'Записать' }));
+      await waitFor(async () => expect((await store.list('sites'))[0].payments).toHaveLength(1));
+      expect(await row('Кофейня Brew')).toHaveTextContent(/оплачено\s*30\s000\s₸/);
+    });
+
+    it('the menu has «Записать платёж…»', async () => {
+      await store.put('sites', site({ price: 100000 }));
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Действия: Кофейня Brew' }));
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Записать платёж…' }));
+      expect(await screen.findByRole('dialog', { name: 'Платёж' })).toBeInTheDocument();
+    });
+
+    it('the editor lists the payments and can take one back', async () => {
+      await store.put('sites', site({ price: 200000, payments: [paid('a', 50000), paid('b', 30000, '2026-10-07')] }));
+      renderPage();
+      fireEvent.click(await row('Кофейня Brew'));
+      expect(await screen.findByRole('dialog', { name: 'Сайт' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Убрать платёж от 5 окт.' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+      await waitFor(async () => expect((await store.list('sites'))[0].payments?.map(p => p.id)).toEqual(['b']));
+    });
+
+    it('«Жду оплату» sums up what is still expected, not the whole amounts', async () => {
+      await store.putMany('sites', [
+        site({ id: 'a', title: 'Первый', status: 'payment', price: 200000, payments: [paid('p', 50000)] }),
+        site({ id: 'b', title: 'Второй', status: 'payment', price: 250000 }),
+        site({ id: 'c', title: 'Оплачен', status: 'payment', price: 100000, payments: [paid('q', 100000)] }),
+      ]);
+      renderPage('/sites?tab=payment');
+      expect(await screen.findByText(/^Ждёшь: 400\s000\s₸$/)).toBeInTheDocument();
+    });
+  });
+
   it('«Жду оплату» sums up what is expected', async () => {
     await store.putMany('sites', [
       site({ id: 'a', title: 'Первый', status: 'payment', price: 200000 }),

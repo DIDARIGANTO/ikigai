@@ -14,7 +14,8 @@ export const NAV: NavItem[] = [
   { key: 'calendar', label: 'Календарь', to: '/calendar' },
   { key: 'boards', label: 'Доски', to: '/boards' },
   { key: 'life', label: 'Моя жизнь', to: '/life' },
-  { key: 'goals', label: 'Цели', to: '/goals' },
+  { key: 'rules', label: 'Правила жизни', to: '/rules' },
+  { key: 'goals', label: '100 целей', to: '/goals' },
   { key: 'dreams', label: 'Мечты', to: '/dreams' },
   { key: 'ideas', label: 'Идеи', to: '/ideas' },
   { key: 'reminders', label: 'Напоминания', to: '/reminders' },
@@ -23,15 +24,14 @@ export const NAV: NavItem[] = [
   { key: 'debts', label: 'Долги', to: '/debts' },
   { key: 'sites', label: 'Сайты', to: '/sites' },
   { key: 'analytics', label: 'Аналитика', to: '/analytics', soon: true },
-  { key: 'codex', label: 'Кодекс', to: '/codex', soon: true },
 ];
 
 /** Группы бокового меню: подпись и разделы в ней. */
 export const NAV_GROUPS: { label: string; keys: SectionKey[] }[] = [
   { label: 'Планирование', keys: ['inbox', 'today', 'calendar', 'boards'] },
-  { label: 'Мечты и цели', keys: ['life', 'goals', 'dreams', 'ideas'] },
+  { label: 'Мечты и цели', keys: ['life', 'rules', 'goals', 'dreams', 'ideas'] },
   { label: 'Под рукой', keys: ['reminders', 'lists', 'notes', 'debts', 'sites'] },
-  { label: 'Скоро', keys: ['analytics', 'codex'] },
+  { label: 'Скоро', keys: ['analytics'] },
 ];
 
 export const SETTINGS_NAV: NavItem = { key: 'settings', label: 'Настройки', to: '/settings' };

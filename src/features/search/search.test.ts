@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Site, Task } from '@/lib/types';
+import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Rule, Site, Task } from '@/lib/types';
 import { buildSearch, flatHits, MAX_PER_GROUP } from './search';
 import type { SearchData } from './search';
 
@@ -37,6 +37,7 @@ const debt = (id: string, person: string, over: Partial<Debt> = {}): Debt => ({
 });
 const site = (id: string, title: string, client?: string, noteText?: string, status?: Site['status']): Site => ({ id, title, client, note: noteText, status, ...base });
 const idea = (id: string, title: string, noteText?: string, status?: Idea['status']): Idea => ({ id, title, note: noteText, status, source: 'web', ...base });
+const rule = (id: string, text: string, group: Rule['group'], noteText?: string): Rule => ({ id, text, group, note: noteText, position: 1, ...base });
 const reminder = (id: string, text: string): Reminder => ({ id, text, date: '2026-09-20', repeat: 'none', ...base });
 
 const data: SearchData = {
@@ -50,6 +51,7 @@ const data: SearchData = {
   debts: [debt('b1', 'Асхат', { note: 'за ремонт' }), debt('b2', 'Марат', { direction: 'iOwe', amount: 12000, closedAt: '2026-09-12T00:00:00.000Z' })],
   sites: [site('w1', 'Кофейня Brew', 'Асхат', 'лендинг с меню', 'payment'), site('w2', 'Студия йоги', 'Дана')],
   ideas: [idea('x1', 'Приложение для барберов', 'запись и касса', 'work'), idea('x2', 'Курс по продажам')],
+  rules: [rule('u1', 'Сон не меньше семи часов', 'brain', 'иначе весь день в тумане'), rule('u2', 'Десять процентов дохода откладывать сразу', 'economy')],
 };
 
 describe('buildSearch', () => {
@@ -122,6 +124,15 @@ describe('buildSearch', () => {
     expect(buildSearch('касса', data)[0].hits[0].id).toBe('x1');
     // новая идея: этап по умолчанию, в подписи его нет
     expect(buildSearch('продажам', data)[0].hits[0]).toMatchObject({ id: 'x2', subtitle: undefined });
+  });
+
+  it('ищет правила жизни по тексту и пояснению; подпись — раздел', () => {
+    const found = buildSearch('семи часов', data)[0];
+    expect(found.label).toBe('Правила жизни');
+    expect(found.icon).toBe('rules');
+    expect(found.hits[0]).toMatchObject({ id: 'u1', kind: 'rule', title: 'Сон не меньше семи часов', subtitle: 'Мозг', to: '/rules?rule=u1' });
+    expect(buildSearch('в тумане', data)[0].hits[0].id).toBe('u1');
+    expect(buildSearch('откладывать', data)[0].hits[0]).toMatchObject({ id: 'u2', subtitle: 'Экономика' });
   });
 
   it('режет группу до восьми строк, но помнит общее число', () => {

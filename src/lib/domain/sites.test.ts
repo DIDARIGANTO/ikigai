@@ -1,6 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import type { Site } from '@/lib/types';
-import { moveTo, NEXT_STATUS, SITE_STATUSES, siteMonogram, sortSites, splitSites, statusOf, totalPrice } from './sites';
+import {
+  addSitePayment,
+  isPaidUp,
+  leftOf,
+  moveTo,
+  NEXT_STATUS,
+  paidOf,
+  paidRatio,
+  removeSitePayment,
+  SITE_STATUSES,
+  siteMonogram,
+  sortSites,
+  splitSites,
+  statusOf,
+  totalLeft,
+} from './sites';
 
 const T = { createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' };
 const site = (over: Partial<Site> = {}): Site => ({ id: 's1', title: 'Сайт', ...T, ...over });
@@ -69,8 +84,53 @@ describe('этапы сайта: встреча → в работе → жду �
     expect(done.status).toBe('done');
   });
 
-  it('totalPrice sums the amounts down to kopecks and skips sites without one', () => {
-    expect(totalPrice([site({ price: 0.1 }), site({ price: 0.2 }), site(), site({ price: 200000 })])).toBe(200000.3);
-    expect(totalPrice([])).toBe(0);
+  it('totalLeft sums what is still expected, down to kopecks; sites without an amount and fully paid ones add nothing', () => {
+    const paid = site({ price: 100000, payments: [{ id: 'p', date: '2026-10-05', amount: 100000 }] });
+    const part = site({ price: 200000, payments: [{ id: 'q', date: '2026-10-06', amount: 50000 }] });
+    expect(totalLeft([site({ price: 0.1 }), site({ price: 0.2 }), site(), paid, part])).toBe(150000.3);
+    expect(totalLeft([])).toBe(0);
   });
 });
+
+describe('платежи по сайту и остаток', () => {
+  const pay = (id: string, amount: number, date = '2026-10-05') => ({ id, date, amount });
+
+  it('paid, left and the paid share come from the payments', () => {
+    const s = site({ price: 200000, payments: [pay('a', 50000), pay('b', 30000)] });
+    expect(paidOf(s)).toBe(80000);
+    expect(leftOf(s)).toBe(120000);
+    expect(paidRatio(s)).toBeCloseTo(0.4);
+    expect(isPaidUp(s)).toBe(false);
+  });
+
+  it('a site without payments owes the whole amount; without an amount there is nothing to be left', () => {
+    expect(leftOf(site({ price: 200000 }))).toBe(200000);
+    expect(paidRatio(site({ price: 200000 }))).toBe(0);
+    expect(leftOf(site())).toBe(0);
+    expect(paidRatio(site())).toBe(0);
+    expect(isPaidUp(site())).toBe(false);
+  });
+
+  it('left never goes below zero, and kopecks do not leak noise', () => {
+    expect(leftOf(site({ price: 100, payments: [pay('a', 150)] }))).toBe(0);
+    expect(paidOf(site({ price: 1, payments: [pay('a', 0.1), pay('b', 0.2)] }))).toBe(0.3);
+    expect(paidRatio(site({ price: 100, payments: [pay('a', 150)] }))).toBe(1);
+  });
+
+  it('paid up means: there is an amount and everything is paid', () => {
+    expect(isPaidUp(site({ price: 100, payments: [pay('a', 100)] }))).toBe(true);
+    expect(isPaidUp(site({ price: 100, payments: [pay('a', 40)] }))).toBe(false);
+  });
+
+  it('addSitePayment / removeSitePayment return new rows and keep the original', () => {
+    const base = site({ price: 100 });
+    const one = addSitePayment(base, pay('a', 40));
+    const two = addSitePayment(one, pay('b', 60));
+    expect(base.payments).toBeUndefined();
+    expect(one.payments).toEqual([pay('a', 40)]);
+    expect(isPaidUp(two)).toBe(true);
+    expect(removeSitePayment(two, 'a').payments).toEqual([pay('b', 60)]);
+    expect(removeSitePayment(base, 'zzz').payments).toEqual([]);
+  });
+});
+

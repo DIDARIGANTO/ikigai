@@ -51,6 +51,14 @@ describe('removeDemoData', () => {
     expect((await store.list('ideas')).map(x => x.title)).toEqual(['Приложение для барберов']);
   });
 
+  it('не трогает правила жизни: это настоящие записи, в демо их нет', async () => {
+    await store.put('rules', {
+      id: 'r1', text: 'Сон не меньше 7 часов', group: 'brain', position: 1, createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z',
+    });
+    await removeDemoData(store);
+    expect((await store.list('rules')).map(x => x.text)).toEqual(['Сон не меньше 7 часов']);
+  });
+
   it('снимает demoLoaded и ссылку на цель недели', async () => {
     expect((await store.list('profiles'))[0].demoLoaded).toBe(true);
     await removeDemoData(store);

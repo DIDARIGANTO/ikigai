@@ -1,30 +1,37 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowRight, Check, Pencil, Plus, Trash2 } from 'lucide-react';
-import type { Site } from '@/lib/types';
+import { ArrowRight, Check, Coins, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { Site, SitePayment } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Menu } from '@/components/ui/Menu';
 import type { MenuEntry } from '@/components/ui/Menu';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Segmented } from '@/components/ui/Segmented';
 import { SectionIcon } from '@/components/ui/SectionIcon';
 import { useCollection, useProfile } from '@/data/hooks';
 import { formatShortRu, todayISO } from '@/lib/dates';
 import {
+  addSitePayment,
+  isPaidUp,
+  leftOf,
   MOVE_LABEL,
   moveTo,
   NEXT_STATUS,
+  paidOf,
+  paidRatio,
   SITE_STATUSES,
   siteMonogram,
   splitSites,
   STATUS_LABEL,
   statusOf,
-  totalPrice,
+  totalLeft,
 } from '@/lib/domain/sites';
 import type { SiteStatus } from '@/lib/domain/sites';
 import { formatDebtAmount } from '@/features/debts/money';
+import { PaymentDialog } from '@/features/debts/PaymentDialog';
 import { newId, nowISO } from '@/lib/ids';
 import { created, deleted, updated, useUndoable } from '@/lib/undo';
 import { SiteEditor } from './SiteEditor';
@@ -34,21 +41,27 @@ const FOCUS = 'focus-ring-inset';
 
 interface RowActions {
   open: (s: Site) => void;
+  pay: (s: Site) => void;
   move: (s: Site, to: SiteStatus) => void;
   remove: (s: Site) => void;
 }
 
 /**
- * Строка сайта: плитка с буквой, название, клиент (у реализованного — с датой сдачи), заметка и сумма сделки.
- * Вся строка открывает редактор; при наведении есть кнопка «дальше» — на следующий этап
- * (встреча → в работе → жду оплату → реализован), а перенос на любой этап, изменить и удалить — в меню справа.
+ * Строка сайта: плитка с буквой, название, клиент (у реализованного — с датой сдачи), заметка и деньги: сумма сделки,
+ * а если что-то уже заплатили — остаток и сколько оплачено (с полосой). Вся строка открывает редактор; при наведении есть
+ * «Платёж» и кнопка «дальше» (встреча → в работе → жду оплату → реализован), а перенос на любой этап, изменить и удалить — в меню справа.
  */
 function SiteRow({ site, currency, actions }: { site: Site; currency: string; actions: RowActions }) {
   const status = statusOf(site);
   const next = NEXT_STATUS[status];
+  const paid = paidOf(site);
+  const left = leftOf(site);
+  const paidUp = isPaidUp(site);
+  const money = (v: number) => formatDebtAmount(v, currency);
   const meta = [site.client, status === 'done' && site.doneAt ? `реализован ${formatShortRu(site.doneAt)}` : null].filter(Boolean).join(' · ');
   const entries: MenuEntry[] = [
     { type: 'item', label: 'Изменить', icon: <Pencil size={14} />, onSelect: () => actions.open(site) },
+    ...(paidUp ? [] : ([{ type: 'item', label: 'Записать платёж…', icon: <Coins size={14} />, onSelect: () => actions.pay(site) }] satisfies MenuEntry[])),
     ...SITE_STATUSES.filter(st => st !== status).map<MenuEntry>(st => ({
       type: 'item',
       label: MOVE_LABEL[st],
@@ -76,9 +89,49 @@ function SiteRow({ site, currency, actions }: { site: Site; currency: string; ac
           <span className="block truncate text-body font-medium text-text">{site.title}</span>
           {meta ? <span className="block truncate text-small text-muted-strong">{meta}</span> : null}
           {site.note ? <span className="block truncate text-small text-muted">{site.note}</span> : null}
+          {site.price && paid > 0 && !paidUp ? (
+            <ProgressBar
+              value={paidRatio(site)}
+              size="sm"
+              className="mt-1.5 max-w-64"
+              label={`${site.title}: оплачено ${money(paid)} из ${money(site.price)}`}
+            />
+          ) : null}
         </span>
-        {site.price ? <span className="shrink-0 font-mono text-body tabular-nums text-text">{formatDebtAmount(site.price, currency)}</span> : null}
+        {site.price ? (
+          <span className="shrink-0 text-right">
+            <span className={`block font-mono text-body tabular-nums ${paidUp ? 'text-success-strong' : 'text-text'}`}>
+              {paid > 0 && !paidUp ? <span className="mr-1.5 font-sans text-caption text-muted">осталось</span> : null}
+              {money(paid > 0 && !paidUp ? left : site.price)}
+            </span>
+            {paidUp ? (
+              <span className="block text-caption text-muted">оплачено полностью</span>
+            ) : paid > 0 ? (
+              <span className="block font-mono text-caption tabular-nums text-muted">
+                оплачено {money(paid)} из {money(site.price)}
+              </span>
+            ) : null}
+          </span>
+        ) : paid > 0 ? (
+          <span className="shrink-0 text-right">
+            <span className="block text-caption text-muted">оплачено</span>
+            <span className="block font-mono text-body tabular-nums text-success-strong">{money(paid)}</span>
+          </span>
+        ) : null}
       </button>
+      {paidUp ? null : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hover-reveal shrink-0 max-sm:px-2"
+          aria-label={`Записать платёж: ${site.title}`}
+          title="Записать платёж"
+          onClick={() => actions.pay(site)}
+        >
+          <Coins size={16} aria-hidden="true" className="sm:hidden" />
+          <span className="max-sm:hidden">Платёж</span>
+        </Button>
+      )}
       {next ? (
         <Button
           variant="ghost"
@@ -124,6 +177,7 @@ export function SitesPage() {
   const [params, setParams] = useSearchParams();
 
   const [editor, setEditor] = useState<{ site: Site | null } | null>(null);
+  const [paying, setPaying] = useState<Site | null>(null);
   const groups = useMemo(() => splitSites(sites), [sites]);
 
   // Вкладка живёт в адресе (`/sites?tab=payment`): страницу можно обновить или отправить ссылкой. Без неё открыто «В работе».
@@ -139,7 +193,7 @@ export function SitesPage() {
       { replace: true },
     );
   const shown = groups[tab];
-  const expected = totalPrice(groups.payment);
+  const expected = totalLeft(groups.payment);
 
   // Ссылка из поиска: `/sites?site=<id>` открывает редактор этого сайта; редактор выводится из адреса, а не копируется в состояние.
   const wanted = params.get('site');
@@ -173,8 +227,13 @@ export function SitesPage() {
     if (!wanted && fields.status && fields.status !== tab) setTab(fields.status);
   };
 
+  const savePayment = async (target: Site, payment: SitePayment) => {
+    await commit('Платёж записан', [updated('sites', target, addSitePayment(target, payment))]);
+  };
+
   const actions: RowActions = {
     open: s => setEditor({ site: s }),
+    pay: s => setPaying(s),
     move: (s, to) => void commit(to === 'done' ? 'Сайт реализован' : `Перенесено: ${STATUS_LABEL[to]}`, [updated('sites', s, moveTo(s, to, todayISO()))]),
     remove: s => void commit('Сайт удалён', [deleted('sites', s)]),
   };
@@ -243,9 +302,22 @@ export function SitesPage() {
           key={current.site?.id ?? 'new'}
           site={current.site}
           defaultStatus={tab}
+          currency={profile.currency}
           onSave={save}
           onDelete={s => actions.remove(s)}
           onClose={closeEditor}
+        />
+      ) : null}
+
+      {paying ? (
+        <PaymentDialog
+          key={paying.id}
+          title="Платёж"
+          who={paying.title}
+          left={paying.price ? leftOf(paying) : null}
+          currency={profile.currency}
+          onSave={p => savePayment(paying, p)}
+          onClose={() => setPaying(null)}
         />
       ) : null}
     </div>

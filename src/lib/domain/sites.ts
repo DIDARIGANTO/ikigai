@@ -1,4 +1,4 @@
-import type { Site } from '@/lib/types';
+import type { Site, SitePayment } from '@/lib/types';
 
 /**
  * Сайты: чистая логика без интерфейса. Сайт — это заказ: он идёт по этапам от встречи с клиентом до оплаты
@@ -65,9 +65,32 @@ export const moveTo = (site: Site, status: SiteStatus, date: string): Site => ({
   doneAt: status === 'done' ? (site.doneAt ?? date) : undefined,
 });
 
-/** Сумма сделок по сайтам, до копеек; сайты без суммы не считаются. */
-export const totalPrice = (sites: readonly Pick<Site, 'price'>[]): number =>
-  Math.round(sites.reduce((sum, s) => sum + (s.price ?? 0), 0) * 100) / 100;
+/** Деньги — до копеек: сумма долей не должна давать «0,30000000000000004». */
+const cents = (n: number): number => Math.round(n * 100) / 100;
+
+// ——— Платежи: остаток считается из платежей и суммы сделки, а не хранится ———
+
+/** Сколько клиент уже заплатил. */
+export const paidOf = (site: Pick<Site, 'payments'>): number => cents((site.payments ?? []).reduce((sum, p) => sum + p.amount, 0));
+
+/** Сколько осталось заплатить; не меньше нуля. Без суммы сделки остатка нет — считать не с чем. */
+export const leftOf = (site: Pick<Site, 'price' | 'payments'>): number => (site.price ? Math.max(0, cents(site.price - paidOf(site))) : 0);
+
+/** Доля оплаченного, 0…1; без суммы сделки — 0. */
+export const paidRatio = (site: Pick<Site, 'price' | 'payments'>): number => (site.price ? Math.min(1, paidOf(site) / site.price) : 0);
+
+/** Оплачено полностью: сумма сделки есть, и остатка нет. */
+export const isPaidUp = (site: Pick<Site, 'price' | 'payments'>): boolean => !!site.price && leftOf(site) <= 0;
+
+export const addSitePayment = (site: Site, payment: SitePayment): Site => ({ ...site, payments: [...(site.payments ?? []), payment] });
+
+export const removeSitePayment = (site: Site, paymentId: string): Site => ({
+  ...site,
+  payments: (site.payments ?? []).filter(p => p.id !== paymentId),
+});
+
+/** Сколько ещё ждёшь по этим сайтам, до копеек; сайты без суммы и оплаченные целиком ничего не добавляют. */
+export const totalLeft = (sites: readonly Pick<Site, 'price' | 'payments'>[]): number => cents(sites.reduce((sum, s) => sum + leftOf(s), 0));
 
 const firstChar = (s: string): string | undefined => Array.from(s.trim())[0];
 

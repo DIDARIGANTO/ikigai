@@ -372,7 +372,7 @@ function SectionNav({ entries }: { entries: NavEntry[] }) {
 const cloudClient = async () => (await import('@/data/supabase')).makeSupabaseClient();
 
 /** Записи, по которым видно, что в браузере остались несохранённые в облако данные. */
-const CONTENT_COLLECTIONS: CollectionName[] = ['tasks', 'goals', 'dreams', 'reminders', 'listItems', 'notes', 'debts', 'sites', 'ideas'];
+const CONTENT_COLLECTIONS: CollectionName[] = ['tasks', 'goals', 'dreams', 'reminders', 'listItems', 'notes', 'debts', 'sites', 'ideas', 'rules'];
 
 async function browserHasData(store: LocalStore): Promise<boolean> {
   for (const c of CONTENT_COLLECTIONS) {

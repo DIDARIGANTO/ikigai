@@ -1,13 +1,14 @@
-import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Site, Task } from '@/lib/types';
+import type { Debt, Dream, Goal, Idea, List, ListItem, Note, Reminder, Rule, Site, Task } from '@/lib/types';
 import type { SectionKey } from '@/lib/icons';
 import { formatShortRu, todayISO } from '@/lib/dates';
 import { nextOccurrence } from '@/lib/domain/reminders';
 import { DIRECTION_LABEL, isClosed, leftOf } from '@/lib/domain/debts';
 import { statusOf as ideaStatusOf } from '@/lib/domain/ideas';
+import { RULE_GROUP_LABEL } from '@/lib/domain/rules';
 import { STATUS_HINT, statusOf } from '@/lib/domain/sites';
 import { formatDebtAmount } from '@/features/debts/money';
 
-export type SearchKind = 'task' | 'note' | 'listItem' | 'goal' | 'dream' | 'reminder' | 'debt' | 'site' | 'idea';
+export type SearchKind = 'task' | 'note' | 'listItem' | 'goal' | 'dream' | 'reminder' | 'debt' | 'site' | 'idea' | 'rule';
 
 export interface SearchHit {
   /** Уникальный ключ строки: вид + идентификатор. */
@@ -40,6 +41,7 @@ export interface SearchData {
   debts: Debt[];
   sites: Site[];
   ideas: Idea[];
+  rules: Rule[];
 }
 
 export const MAX_PER_GROUP = 8;
@@ -230,6 +232,23 @@ const SPECS: GroupSpec[] = [
           // У новой идеи этапа в подписи нет: это обычное состояние.
           subtitle: ideaStatusOf(x) === 'work' ? 'в работе' : ideaStatusOf(x) === 'done' ? 'реализована' : undefined,
           to: `/ideas?idea=${x.id}`,
+        })),
+  },
+  {
+    kind: 'rule',
+    label: 'Правила жизни',
+    icon: 'rules',
+    collect: (q, d) =>
+      d.rules
+        .filter(x => hit(x.text, q) || hit(x.note, q))
+        .map(x => ({
+          key: `rule:${x.id}`,
+          kind: 'rule' as const,
+          id: x.id,
+          title: x.text,
+          // Раздел правила: «Мозг», «Режим», «Экономика» или «Спорт».
+          subtitle: RULE_GROUP_LABEL[x.group] ?? RULE_GROUP_LABEL.brain,
+          to: `/rules?rule=${x.id}`,
         })),
   },
 ];

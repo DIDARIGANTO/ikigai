@@ -485,7 +485,15 @@ export function DebtsPage() {
       ) : null}
 
       {paying ? (
-        <PaymentDialog key={paying.id} debt={paying} onSave={p => savePayment(paying, p)} onClose={() => setPaying(null)} />
+        <PaymentDialog
+          key={paying.id}
+          title="Возврат"
+          who={paying.person}
+          left={leftOf(paying)}
+          currency={paying.currency}
+          onSave={p => savePayment(paying, p)}
+          onClose={() => setPaying(null)}
+        />
       ) : null}
     </div>
   );

@@ -183,7 +183,7 @@ export function GoalDetail() {
   return (
     <div className="mx-auto max-w-[1120px]">
       {/* Путь текстом: раздел, мечта и цели-предки; сама цель — заголовок ниже. */}
-      <GoalChain home={{ to: '/goals', label: 'Цели' }} dream={dream} goals={chain.goals.slice(0, -1)} />
+      <GoalChain home={{ to: '/goals', label: '100 целей' }} dream={dream} goals={chain.goals.slice(0, -1)} />
 
       <header className="mt-3 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">

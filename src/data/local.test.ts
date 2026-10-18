@@ -57,8 +57,8 @@ describe('LocalStore schema upgrade v1 → v2', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(5);
-    expect(reopened.tables.map(t => t.name).sort()).toEqual(expect.arrayContaining(['dailyLogs', 'debts', 'sites', 'ideas']));
+    expect(reopened.verno).toBe(6);
+    expect(reopened.tables.map(t => t.name).sort()).toEqual(expect.arrayContaining(['dailyLogs', 'debts', 'sites', 'ideas', 'rules']));
     reopened.close();
   });
 });
@@ -94,7 +94,7 @@ describe('LocalStore schema upgrade v2 → v3', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(5);
+    expect(reopened.verno).toBe(6);
     expect(reopened.tables.map(t => t.name)).toContain('debts');
     reopened.close();
   });
@@ -128,7 +128,7 @@ describe('LocalStore schema upgrade v3 → v4', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(5);
+    expect(reopened.verno).toBe(6);
     expect(reopened.tables.map(t => t.name)).toContain('sites');
     reopened.close();
   });
@@ -158,8 +158,39 @@ describe('LocalStore schema upgrade v4 → v5', () => {
 
     const reopened = new Dexie(name);
     await reopened.open();
-    expect(reopened.verno).toBe(5);
+    expect(reopened.verno).toBe(6);
     expect(reopened.tables.map(t => t.name)).toContain('ideas');
+    reopened.close();
+  });
+});
+
+describe('LocalStore schema upgrade v5 → v6', () => {
+  it('keeps v5 data (ideas) and adds the rules store', async () => {
+    const { default: Dexie } = await import('dexie');
+    const { V1_COLLECTIONS, V2_COLLECTIONS, V3_COLLECTIONS, V4_COLLECTIONS, V5_COLLECTIONS } = await import('./local');
+    const name = 'upgrade-v5-' + Math.random();
+    // База пятой версии (с идеями, но без правил), как её создавала прошлая сборка.
+    const old = new Dexie(name);
+    const stores = (list: string[]) => Object.fromEntries(list.map(c => [c, 'id']));
+    old.version(1).stores(stores(V1_COLLECTIONS));
+    old.version(2).stores(stores(V2_COLLECTIONS));
+    old.version(3).stores(stores(V3_COLLECTIONS));
+    old.version(4).stores(stores(V4_COLLECTIONS));
+    old.version(5).stores(stores(V5_COLLECTIONS));
+    await old.table('ideas').put({ id: 'i1', title: 'Приложение для барберов', source: 'web', createdAt: '2026-10-13T00:00:00.000Z', updatedAt: '2026-10-13T00:00:00.000Z' });
+    old.close();
+
+    const store = new LocalStore(name);
+    expect((await store.list('ideas'))[0].title).toBe('Приложение для барберов');
+    expect(await store.list('rules')).toEqual([]);
+    await store.put('rules', { id: 'r1', text: 'Сон не меньше 7 часов', group: 'brain', position: 1, createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' });
+    expect((await store.list('rules'))[0].text).toBe('Сон не меньше 7 часов');
+    expect(store.status()).toBe('ok');
+
+    const reopened = new Dexie(name);
+    await reopened.open();
+    expect(reopened.verno).toBe(6);
+    expect(reopened.tables.map(t => t.name)).toContain('rules');
     reopened.close();
   });
 });

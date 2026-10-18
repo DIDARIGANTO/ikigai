@@ -66,6 +66,8 @@ const payments: Check = v => {
   const good = v.filter(p => isRec(p) && isStr(p.id) && p.id !== '' && isNum(p.amount) && p.amount > 0 && isDateISO(p.date));
   return good.length === v.length ? OK : { fix: good };
 };
+/** Платежи по сайту: списка может не быть вовсе; если он есть, негодные записи отбрасываем, а не-список убираем. */
+const sitePayments: Check = v => (v === undefined ? OK : Array.isArray(v) ? payments(v) : REMOVE);
 
 function validTimeZone(tz: string) {
   try {
@@ -199,6 +201,12 @@ const SPECS: Record<CollectionName, Spec> = {
     payments,
     closedAt: optInstant,
   },
+  rules: {
+    text: text(),
+    group: oneOf(['brain', 'regime', 'economy', 'sport'], 'brain'),
+    note: optText,
+    position: num(),
+  },
   ideas: {
     title: text(),
     note: optText,
@@ -213,6 +221,7 @@ const SPECS: Record<CollectionName, Spec> = {
     status: v => (v === undefined || v === 'meeting' || v === 'work' || v === 'payment' || v === 'done' ? OK : REMOVE),
     client: optText,
     price: optNonNeg,
+    payments: sitePayments,
     doneAt: optDate,
   },
 };

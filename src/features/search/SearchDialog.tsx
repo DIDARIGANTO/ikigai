@@ -47,6 +47,7 @@ const HIT_ICON: Record<SearchHit['kind'], SectionKey> = {
   debt: 'debts',
   site: 'sites',
   idea: 'ideas',
+  rule: 'rules',
 };
 
 /** Значок строки — простая иконка 16 px без подложки; у активной строки — цвета текста. */
@@ -83,6 +84,7 @@ function Dialog({ onClose, onPickTask }: { onClose: () => void; onPickTask: (id:
   const debts = useCollection('debts');
   const sites = useCollection('sites');
   const ideas = useCollection('ideas');
+  const rules = useCollection('rules');
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -94,8 +96,8 @@ function Dialog({ onClose, onPickTask }: { onClose: () => void; onPickTask: (id:
   useFocusTrap(dialogRef, true);
 
   const groups = useMemo(
-    () => buildSearch(query, { tasks, notes, listItems, lists, goals, dreams, reminders, debts, sites, ideas }),
-    [query, tasks, notes, listItems, lists, goals, dreams, reminders, debts, sites, ideas],
+    () => buildSearch(query, { tasks, notes, listItems, lists, goals, dreams, reminders, debts, sites, ideas, rules }),
+    [query, tasks, notes, listItems, lists, goals, dreams, reminders, debts, sites, ideas, rules],
   );
 
   /** Недавнее — только то, что ещё существует: удалённая заметка не должна висеть в списке. */
@@ -110,9 +112,10 @@ function Dialog({ onClose, onPickTask }: { onClose: () => void; onPickTask: (id:
       ...debts.map(d => `debt:${d.id}`),
       ...sites.map(s => `site:${s.id}`),
       ...ideas.map(i => `idea:${i.id}`),
+      ...rules.map(r => `rule:${r.id}`),
     ]);
     return recent.filter(h => alive.has(h.key));
-  }, [recent, tasks, notes, listItems, goals, dreams, reminders, debts, sites, ideas]);
+  }, [recent, tasks, notes, listItems, goals, dreams, reminders, debts, sites, ideas, rules]);
 
   const sections = useMemo<RowSection[]>(() => {
     const out: RowSection[] = [];

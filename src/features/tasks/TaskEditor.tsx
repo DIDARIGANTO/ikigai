@@ -21,6 +21,7 @@ import { EmojiButton } from './EmojiButton';
 import { PickerMenu } from './PickerMenu';
 import { boardPickerItems, goalPickerItems } from './pickers';
 import { planFactBar } from './planFact';
+import { titleFromNote } from './titleFromNote';
 
 // oxlint-disable-next-line react/only-export-components -- список длительностей общий с быстрой записью
 export const DURATIONS = [15, 30, 45, 60, 90, 120];
@@ -158,14 +159,19 @@ export function TaskEditor({
   const shownColumnId = nextColumnId(columns, task, form.boardId || undefined, form.columnId);
   const column = columns.find(c => c.id === shownColumnId);
 
+  // Название можно не писать: у задачи, которую надиктовали сразу в заметку, им станет первая строка заметки.
+  const title = form.title.trim() || titleFromNote(form.notes);
+  const canSave = title !== '';
+
   const submit = async () => {
-    const title = form.title.trim();
     if (!title) return;
     const boardId = form.boardId || undefined;
+    const notes = form.notes.trim();
     const patch = {
       title,
       emoji: form.emoji,
-      notes: form.notes.trim() || undefined,
+      // Заметка из одной строки, ставшей названием, ничего не добавляет: не дублируем её.
+      notes: notes && notes !== title ? notes : undefined,
       area: form.area,
       boardId,
       // Колонку трогаем только при смене доски или ручном выборе: иначе задача прыгала бы в «Надо сделать».
@@ -200,10 +206,12 @@ export function TaskEditor({
               Удалить
             </Button>
           ) : null}
+          {/* Почему «Сохранить» серое — прямо в панели: иначе кажется, что кнопка сломана. */}
+          <span className="min-w-0 flex-1 truncate text-small text-muted">{canSave ? '' : 'Нужно название или заметка'}</span>
           <Button variant="ghost" onClick={onClose} className={task ? '' : 'ml-auto'}>
             Отмена
           </Button>
-          <Button variant="primary" onClick={() => void submit()} disabled={!form.title.trim()}>
+          <Button variant="primary" onClick={() => void submit()} disabled={!canSave}>
             Сохранить
           </Button>
         </div>

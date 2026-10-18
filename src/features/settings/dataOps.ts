@@ -4,9 +4,9 @@ import { nowISO } from '@/lib/ids';
 
 /**
  * Эти коллекции демо-данные не трогают: каркас приложения (профиль, доски, колонки, папки блокнота),
- * долги, сайты и идеи — это всегда настоящие записи человека, в демо их нет.
+ * долги, сайты, идеи и правила жизни — это всегда настоящие записи человека, в демо их нет.
  */
-const KEEP_COLLECTIONS: CollectionName[] = ['profiles', 'boards', 'columns', 'noteFolders', 'debts', 'sites', 'ideas'];
+const KEEP_COLLECTIONS: CollectionName[] = ['profiles', 'boards', 'columns', 'noteFolders', 'debts', 'sites', 'ideas', 'rules'];
 
 /** Единственный список, который создаётся вместе с каркасом. */
 export const KEPT_LIST_TITLE = 'Купить';

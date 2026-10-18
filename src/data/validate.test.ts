@@ -30,8 +30,9 @@ const GOOD: Record<CollectionName, Record<string, unknown>> = {
     id: 'db1', direction: 'owedToMe', person: 'Асхат', amount: 50000, currency: 'KZT', date: '2026-09-30',
     dueDate: '2026-10-30', note: 'за ремонт', payments: [{ id: 'p1', date: '2026-10-01', amount: 10000 }], ...T,
   },
+  rules: { id: 'ru1', text: 'Сон не меньше 7 часов', group: 'brain', note: 'Иначе весь день в тумане', position: 1, ...T },
   ideas: { id: 'i1', title: 'Приложение для барберов', note: 'Запись и напоминания', status: 'work', source: 'telegram', ...T },
-  sites: { id: 's1', title: 'Кофейня Brew', note: 'Лендинг с меню', status: 'payment', client: 'Асхат', price: 200000, doneAt: '2026-10-05', ...T },
+  sites: { id: 's1', title: 'Кофейня Brew', note: 'Лендинг с меню', status: 'payment', client: 'Асхат', price: 200000, doneAt: '2026-10-05', payments: [{ id: 'sp1', date: '2026-10-01', amount: 50000 }], ...T },
 };
 
 /** Битая, но чинимая строка каждой коллекции и то, что должно получиться. */
@@ -55,6 +56,7 @@ const REPAIRABLE: Record<CollectionName, [Record<string, unknown>, Record<string
     { direction: 'sideways', person: 7, amount: 'много', currency: 'рубли', dueDate: 'скоро', payments: 'нет', closedAt: 'давно' },
     { direction: 'owedToMe', person: '7', amount: 0, currency: 'KZT', payments: [] },
   ],
+  rules: [{ text: 42, group: 'weather', note: 7, position: 'первое' }, { text: '42', group: 'brain', note: '7', position: 0 }],
   ideas: [{ title: 42, note: 7, status: 'бред', source: 'email' }, { title: '42', note: '7', source: 'web' }],
   sites: [{ title: 42, note: 7, status: 'сдан', client: 5, doneAt: 'вчера', price: 'много' }, { title: '42', note: '7', client: '5' }],
 };
@@ -140,6 +142,18 @@ describe('normalizeRow', () => {
     const out = normalizeRow('boards', { id: 'b', title: 'x', position: 0 });
     expect(out?.createdAt).toBe('1970-01-01T00:00:00.000Z');
     expect(out?.updatedAt).toBe('1970-01-01T00:00:00.000Z');
+  });
+
+  it('sites: keeps good payments, drops broken ones, and a missing list stays missing', () => {
+    const good = { id: 'p1', date: '2026-10-01', amount: 10000 };
+    const out = normalizeRow('sites', {
+      ...GOOD.sites,
+      payments: [good, { id: '', date: '2026-10-02', amount: 5 }, { id: 'p3', date: 'вчера', amount: 5 }, { id: 'p4', date: '2026-10-03', amount: -5 }, 'нет'],
+    });
+    expect(out?.payments).toEqual([good]);
+    const { payments: _omit, ...noPayments } = GOOD.sites;
+    expect(normalizeRow('sites', noPayments)).not.toHaveProperty('payments');
+    expect(normalizeRow('sites', { ...GOOD.sites, payments: 'много' })).not.toHaveProperty('payments');
   });
 
   it('debts: keeps good payments, drops broken ones, and a missing list becomes empty', () => {

@@ -116,6 +116,9 @@ export interface Debt extends Base {
   closedAt?: string;       // ISO — закрыт без полной выплаты
 }
 
+/** Платёж клиента по сайту: та же форма, что у возврата по долгу. */
+export type SitePayment = DebtPayment;
+
 /** Сайт в разделе «Сайты»: заказ на сайт от встречи с клиентом до оплаты. */
 export interface Site extends Base {
   title: string;           // «Сайт кофейни»
@@ -123,6 +126,7 @@ export interface Site extends Base {
   status?: 'meeting' | 'work' | 'payment' | 'done'; // этап: встреча → в работе (по умолчанию) → жду оплату → реализован
   client?: string;         // чей сайт
   price?: number;          // сумма сделки, в валюте профиля
+  payments?: SitePayment[]; // платежи клиента по порядку; остаток считается из них и суммы сделки
   doneAt?: string;         // 'YYYY-MM-DD' — когда реализован
 }
 
@@ -132,6 +136,17 @@ export interface Idea extends Base {
   note?: string;
   status?: 'new' | 'work' | 'done'; // нет статуса — новая
   source: Source;
+}
+
+/** Раздел правил жизни: так владелец назвал четыре части своего кодекса. */
+export type RuleGroup = 'brain' | 'regime' | 'economy' | 'sport';
+
+/** Правило жизни (Кодекс): то, чего человек держится. */
+export interface Rule extends Base {
+  text: string;
+  group: RuleGroup;
+  note?: string;           // зачем это правило
+  position: number;        // порядок внутри раздела: по возрастанию
 }
 
 /** Итог дня: закрывается вечером на «Сегодня». `id` — дата дня. */
@@ -163,6 +178,7 @@ export interface Schema {
   debts: Debt;
   sites: Site;
   ideas: Idea;
+  rules: Rule;
 }
 
 export type CollectionName = keyof Schema;
@@ -170,5 +186,5 @@ export type Row<K extends CollectionName> = Schema[K];
 
 export const COLLECTIONS: CollectionName[] = [
   'profiles', 'dreams', 'goals', 'boards', 'columns', 'tasks',
-  'reminders', 'lists', 'listItems', 'noteFolders', 'notes', 'dailyLogs', 'debts', 'sites', 'ideas',
+  'reminders', 'lists', 'listItems', 'noteFolders', 'notes', 'dailyLogs', 'debts', 'sites', 'ideas', 'rules',
 ];

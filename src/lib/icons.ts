@@ -35,7 +35,7 @@ export const SECTION_ICONS = {
   sites: Globe,
   ideas: Lightbulb,
   analytics: ChartColumn,
-  codex: BookOpen,
+  rules: BookOpen,
   settings: Settings,
   task: SquareCheck,
 } as const satisfies Record<string, LucideIcon>;
